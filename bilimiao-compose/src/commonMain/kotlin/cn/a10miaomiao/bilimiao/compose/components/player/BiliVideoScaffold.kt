@@ -44,6 +44,7 @@ import cn.a10miaomiao.bilimiao.compose.ORIENTATION_PORTRAIT
 import cn.a10miaomiao.bilimiao.compose.common.HapticFeedbackType
 import cn.a10miaomiao.bilimiao.compose.common.LocalPlayerState
 import cn.a10miaomiao.bilimiao.compose.common.isCompactWindow
+import cn.a10miaomiao.bilimiao.compose.base.BottomSheetState
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigator
 import cn.a10miaomiao.bilimiao.compose.common.rememberHapticFeedback
 import cn.a10miaomiao.bilimiao.compose.components.layout.PlayerDisplayMode
@@ -153,6 +154,7 @@ fun BiliVideoScaffold(
     // 播放器控制依赖的服务（通过 Kodein 注入）
     val userStore: UserStore by rememberInstance()
     val pageNavigator: PageNavigator by rememberInstance()
+    val bottomSheetState: BottomSheetState by rememberInstance()
 
     // 倍速菜单预设值（设置中的 PlayerSpeedValues，默认 0.5x/1.0x/2.0x）
     var speedOptions by remember {
@@ -411,7 +413,8 @@ fun BiliVideoScaffold(
                                     if (isFullscreen && isPlaying) {
                                         playerDelegate.pause()
                                     }
-                                    pageNavigator.navigate(SendDanmakuPage())
+                                    // 底部弹窗打开，不压栈顶走当前页面
+                                    bottomSheetState.open(SendDanmakuPage())
                                 }
                             },
                         )
