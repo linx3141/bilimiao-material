@@ -4,8 +4,7 @@ package cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture
 
 import androidx.annotation.UiThread
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -30,6 +29,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
 
@@ -235,8 +235,8 @@ class SwipeSeekerState internal constructor(
             enabled: Boolean = true,
             interactionSource: MutableInteractionSource? = null,
             reverseDirection: Boolean = false,
-            onDragStarted: suspend CoroutineScope.(startedPosition: Offset) -> Unit = {},
-            onDragStopped: suspend CoroutineScope.(velocity: Float, cancelled: Boolean) -> Unit = { _, _ -> },
+            onDragStarted: (startedPosition: Offset) -> Unit = {},
+            onDragStopped: (velocity: Float, cancelled: Boolean) -> Unit = { _, _ -> },
             onCancellationChanged: (cancelled: Boolean) -> Unit = {},
             onDelta: (Float) -> Unit = {},
         ): Modifier {
@@ -246,26 +246,88 @@ class SwipeSeekerState internal constructor(
                     properties["seekerState"] = seekerState
                 },
             ) {
-                draggable(
-                    rememberDraggableState {
-                        seekerState.onSwipeOffset(it)
-                        onDelta(it)
-                    },
-                    orientation,
-                    onDragStarted = {
-                        seekerState.onSwipeStarted()
-                        onDragStarted(it)
-                    },
-                    onDragStopped = {
-                        val cancelled = seekerState.isCancelled
-                        seekerState.onSwipeStopped()
-                        onDragStopped(it, cancelled)
-                    },
-                    enabled = enabled,
-                    interactionSource = interactionSource,
-                    reverseDirection = reverseDirection,
-                ).trackSwipeSeekCancellation(seekerState, onCancellationChanged)
+                if (!enabled) {
+                    return@composed Modifier
+                        .trackSwipeSeekCancellation(seekerState, onCancellationChanged)
+                }
+                Modifier
+                    .pointerInput(seekerState, reverseDirection) {
+                        awaitPointerEventScope {
+                            // 屏幕左右两侧的系统手势区宽度：此区域内触摸完全让位给系统返回手势
+                            val edgeSlopPx = 32.dp.toPx()
+                            val touchSlopPx = viewConfiguration.touchSlop
+                            while (true) {
+                                // 等待按下（不要求未被消费）
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val id = down.id
+                                val downX = down.position.x
+                                val downY = down.position.y
+                                // 按下位置落在系统返回手势区：整次触摸让位，
+                                // 不启动快进/快退、不消费事件，系统边缘返回手势才能接管
+                                if (downX < edgeSlopPx || downX > size.width - edgeSlopPx) {
+                                    // 等待该手指抬起/取消，期间不消费任何事件
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Final)
+                                        val change = event.changes.firstOrNull { it.id == id }
+                                        if (change == null) {
+                                            if (event.changes.none { it.id == id }) break
+                                            continue
+                                        }
+                                        if (!change.pressed) break
+                                    }
+                                    continue
+                                }
+                                var started = false
+                                var verticalFirst = false
+                                var lastX = downX
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == id }
+                                    if (change == null) {
+                                        // 指针被移除/系统取消（例如系统返回手势接管）
+                                        if (event.changes.none { it.id == id }) break
+                                        continue
+                                    }
+                                    if (!change.pressed) break
+                                    if (change.isConsumed) continue
+                                    if (!started) {
+                                        if (!verticalFirst) {
+                                            val dx = (change.position.x - downX) *
+                                                (if (reverseDirection) -1f else 1f)
+                                            val dy = (change.position.y - downY)
+                                            if (abs(dy) > touchSlopPx && abs(dy) > abs(dx)) {
+                                                // 垂直方向先行：本次触摸让给亮度/音量等纵向手势
+                                                verticalFirst = true
+                                            } else if (abs(dx) > touchSlopPx) {
+                                                started = true
+                                                seekerState.onSwipeStarted()
+                                                onDragStarted(down.position)
+                                                lastX = change.position.x
+                                                change.consume()
+                                            }
+                                        }
+                                    } else {
+                                        val dx = (change.position.x - lastX) *
+                                            (if (reverseDirection) -1f else 1f)
+                                        if (dx != 0f) {
+                                            seekerState.onSwipeOffset(dx)
+                                            onDelta(dx)
+                                        }
+                                        lastX = change.position.x
+                                        change.consume()
+                                    }
+                                }
+                                if (started) {
+                                    val cancelled = seekerState.isCancelled
+                                    seekerState.onSwipeStopped()
+                                    onDragStopped(0f, cancelled)
+                                }
+                            }
+                        }
+                    }
+                    .trackSwipeSeekCancellation(seekerState, onCancellationChanged)
             }
         }
+
     }
 }
