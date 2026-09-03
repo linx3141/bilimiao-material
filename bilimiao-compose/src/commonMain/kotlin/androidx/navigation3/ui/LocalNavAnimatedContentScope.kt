@@ -52,3 +52,13 @@ val LocalDimOnPredictiveBack: ProvidableCompositionLocal<(Scene<*>, Scene<*>) ->
  */
 val LocalNavDisplayBackEnabled: ProvidableCompositionLocal<Boolean> =
     compositionLocalOf { true }
+
+/**
+ * 当前场景是否正处于页面过渡动画（打开/返回/预测性返回）中被移出/位移。
+ *
+ * 过渡动画会逐帧改变场景内布局位置；播放器锚点（PlayerAnchorBox）等
+ * “悬浮于页面之上、不应跟随页面位移”的内容可据此在动画期间冻结自身位置，
+ * 动画结束后自动恢复。
+ */
+val LocalSceneDisplacing: ProvidableCompositionLocal<Boolean> =
+    compositionLocalOf { false }

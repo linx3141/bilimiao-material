@@ -768,6 +768,10 @@ fun <T : Any> NavDisplay(
             LocalCurrentScene provides targetScene,
             LocalEntriesToExcludeFromCurrentScene provides
                     sceneToExcludedEntryMap.getValue(AnimatedSceneKey(targetScene)),
+            // 正在被过渡动画移出/位移的场景（打开/返回/预测性返回期间）
+            LocalSceneDisplacing provides
+                    (transition.currentState != transition.targetState &&
+                            targetScene == transition.currentState),
         ) {
             val myZIndex =
                 zIndices.getOrElse(AnimatedSceneKey(targetScene)) { targetZIndex }
