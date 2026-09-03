@@ -13,36 +13,52 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import bilimiao.bilimiao_compose.generated.resources.Res
 import bilimiao.bilimiao_compose.generated.resources.bili_fail_placeholder_img_tv
 import bilimiao.bilimiao_compose.generated.resources.bili_default_placeholder_img_tv
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadItemInfo
 import cn.a10miaomiao.bilimiao.compose.common.download.entry.CurrentDownloadInfo
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DownloadDetailItem(
+    modifier: Modifier = Modifier,
     curDownload: CurrentDownloadInfo?,
     item: DownloadItemInfo,
+    segmentedShape: Shape? = null,
     onClick: () -> Unit,
     onStartClick: () -> Unit,
     onPauseClick: (taskId: Long) -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     var expandedMoreMenu by remember { mutableStateOf(false) }
+    val segmentedShapes = LocalListItemShapes.current
+    val hasSegmented = segmentedShape != null || segmentedShapes != null
 
     Box(
-        modifier = Modifier.padding(5.dp),
+        modifier = if (!hasSegmented) {
+            modifier.padding(5.dp)
+        } else {
+            modifier
+        },
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
                 .clickable(onClick = onClick),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
+            shape = segmentedShape ?: segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (hasSegmented) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
         ) {
             Column() {
                 Row(

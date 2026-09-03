@@ -16,11 +16,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import com.a10miaomiao.bilimiao.comm.entity.bangumi.EpisodeInfo
 import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BangumiEpisodeItem(
     modifier: Modifier = Modifier,
@@ -33,15 +35,7 @@ fun BangumiEpisodeItem(
 ) {
     var expandedMoreMenu by remember{ mutableStateOf(false) }
     val isPlaying = playerState.type == PlayerStore.BANGUMI && playerState.epid == item.id
-    Row(
-        modifier = modifier
-            .clickable(
-                enabled = !isPlaying,
-                onClick = onClick,
-            )
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val rowContent: @Composable RowScope.() -> Unit = {
         Box(
             modifier = Modifier.size(width = 120.dp, height = 80.dp),
             contentAlignment = Alignment.TopEnd
@@ -142,6 +136,38 @@ fun BangumiEpisodeItem(
                     }
                 }
             }
+        }
+    }
+    val segmentedShapes = LocalListItemShapes.current
+    if (segmentedShapes != null) {
+        // 分段（Segmented）列表：连体圆角 + surfaceBright 背景
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = segmentedShapes.shape,
+            color = MaterialTheme.colorScheme.surfaceBright,
+            onClick = onClick,
+            enabled = !isPlaying,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                rowContent()
+            }
+        }
+    } else {
+        Row(
+            modifier = modifier
+                .clickable(
+                    enabled = !isPlaying,
+                    onClick = onClick,
+                )
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            rowContent()
         }
     }
 }

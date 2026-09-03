@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,11 +20,15 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,12 +48,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import com.a10miaomiao.bilimiao.comm.store.FilterStore
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.launch
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 
 internal class FilterTagListContentModel(
@@ -81,6 +89,7 @@ internal class FilterTagListContentModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun FilterTagListContent() {
     val viewModel: FilterTagListContentModel = diViewModel {
@@ -171,32 +180,48 @@ internal fun FilterTagListContent() {
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(filterTagList.size, { filterTagList[it] }) { index ->
-                    val tag = filterTagList[index]
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                inputMode = index
-                                inputText = tag
-                            }
+                itemsIndexed(filterTagList) { index, tag ->
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            filterTagList.size,
+                        ),
                     ) {
-                        Checkbox(
-                            checked = selectedMap.contains(tag),
-                            onCheckedChange = {
-                                if (selectedMap.contains(tag)) {
-                                    selectedMap.remove(tag)
-                                } else {
-                                    selectedMap[tag] = index
-                                }
+                        val segmentedShapes = LocalListItemShapes.current
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceBright,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        inputMode = index
+                                        inputText = tag
+                                    }
+                            ) {
+                                Checkbox(
+                                    checked = selectedMap.contains(tag),
+                                    onCheckedChange = {
+                                        if (selectedMap.contains(tag)) {
+                                            selectedMap.remove(tag)
+                                        } else {
+                                            selectedMap[tag] = index
+                                        }
+                                    }
+                                )
+                                Text(
+                                    text = tag,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
                             }
-                        )
-                        Text(
-                            text = tag,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        }
                     }
                 }
 
@@ -299,7 +324,8 @@ internal fun FilterTagListContent() {
                 ) {
                     Text("取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 

@@ -14,14 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +35,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toColorInt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -53,6 +58,7 @@ import cn.a10miaomiao.bilimiao.compose.components.status.BiliFailBox
 import cn.a10miaomiao.bilimiao.compose.components.status.BiliLoadingBox
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
 import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
+import com.a10miaomiao.bilimiao.comm.delegate.player.createVideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.bangumi.EpisodeInfo
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.store.PlayerStore
@@ -128,7 +134,7 @@ private class VideoPagesPageViewModel(
 
     fun startPlayVideo(page: Page) {
         val arc = arcInfo ?: return
-        val playerSource = VideoPlayerSource(
+        val playerSource = createVideoPlayerSource(
             aid = aid,
             id = page.cid.toString(),
             coverUrl = arc.pic,
@@ -147,6 +153,7 @@ private class VideoPagesPageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VideoPagesPageContent(
     viewModel: VideoPagesPageViewModel
@@ -198,49 +205,67 @@ private fun VideoPagesPageContent(
         }
         LazyColumn(
             state = listState,
-            contentPadding = windowInsets.toPaddingValues()
+            contentPadding = windowInsets.toPaddingValues(),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(pages.size, { pages[it].cid }) { index ->
-                val page = pages[index]
+            itemsIndexed(pages, key = { _, page -> page.cid }) { index, page ->
                 val isCurrentPlay = currentPlay.cid == page.cid.toString()
-                Box(Modifier.padding(vertical = 5.dp, horizontal = 10.dp)) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth()
-                            .heightIn(min = 50.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (isCurrentPlay) BorderStroke(
-                            1.dp, color = MaterialTheme.colorScheme.primary
-                        ) else null
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        pages.size,
+                    ),
+                ) {
+                    val segmentedShapes = LocalListItemShapes.current
+                    Box(
+                        modifier = if (segmentedShapes == null) {
+                            Modifier.padding(vertical = 5.dp, horizontal = 10.dp)
+                        } else {
+                            Modifier.padding(horizontal = 12.dp)
+                        }
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = {
-                                    viewModel.startPlayVideo(page)
-                                })
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "P${index + 1} " + page.part,
-                                fontSize = 18.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (isCurrentPlay) {
-                                Text(
-                                    text = "正在播放",
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(end = 5.dp),
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth()
+                                .heightIn(min = 50.dp),
+                            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+                            color = if (segmentedShapes != null) {
+                                MaterialTheme.colorScheme.surfaceBright
                             } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            border = if (isCurrentPlay) BorderStroke(
+                                1.dp, color = MaterialTheme.colorScheme.primary
+                            ) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = {
+                                        viewModel.startPlayVideo(page)
+                                    })
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Text(
-                                    text = NumberUtil.converDuration(page.duration),
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(end = 5.dp),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    text = "P${index + 1} " + page.part,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                if (isCurrentPlay) {
+                                    Text(
+                                        text = "正在播放",
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(end = 5.dp),
+                                        color = MaterialTheme.colorScheme.outline,
+                                    )
+                                } else {
+                                    Text(
+                                        text = NumberUtil.converDuration(page.duration),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(end = 5.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                             }
                         }
                     }

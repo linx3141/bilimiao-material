@@ -20,11 +20,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -53,114 +55,121 @@ fun MiniVideoItemBox(
     damukuNum: String? = null,
     duration: String? = null,
     isHtml: Boolean = false,
+    isChargeVideo: Boolean = false,
     onClick: () -> Unit,
 ) {
     MiaoCard(
         modifier = modifier,
         onClick = onClick,
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(672f / 378f)
+                .padding(8.dp),
         ) {
-            if (pic != null) {
-                AsyncImage(
-                    model = UrlUtil.autoHttps(pic) + "@672w_378h_1c_",
-                    contentScale = ContentScale.Crop,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
-                    error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black),
-                        )
-                    )
-                    .padding(5.dp)
-            ) {
-                if (playNum != null && damukuNum != null) {
-                    Icon(
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.White,
-                        imageVector = BilimiaoIcons.Common.Playnum,
-                        contentDescription = "播放量"
-                    )
-                    Text(
-                        modifier = Modifier.padding(start = 2.dp),
-                        text = NumberUtil.converString(playNum),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Icon(
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.White,
-                        imageVector = BilimiaoIcons.Common.Danmukunum,
-                        contentDescription = "弹幕数"
-                    )
-                    Text(
-                        modifier = Modifier.padding(start = 2.dp),
-                        text = damukuNum,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                if (duration != null) {
-                    Text(
-                        modifier = Modifier.padding(start = 2.dp)
-                            .semantics {
-                                contentDescription = "视频时长：$duration"
-                            },
-                        text = duration,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-        }
-        if (title != null) {
+            // 封面：圆角缩略图（与外面视频列表一致），不填满卡片边缘
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                    .heightIn(min = 40.dp)
-                    .zIndex(-1f),
+                    .aspectRatio(672f / 378f)
+                    .clip(RoundedCornerShape(12.dp)),
             ) {
-                Text(
-                    text = title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                if (pic != null) {
+                    AsyncImage(
+                        model = UrlUtil.autoHttps(pic) + "@672w_378h_1c_",
+                        contentScale = ContentScale.Crop,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
+                        error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black),
+                            )
+                        )
+                        .padding(5.dp)
+                ) {
+                    if (playNum != null && damukuNum != null) {
+                        Icon(
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White,
+                            imageVector = BilimiaoIcons.Common.Playnum,
+                            contentDescription = "播放量"
+                        )
+                        Text(
+                            modifier = Modifier.padding(start = 2.dp),
+                            text = NumberUtil.converString(playNum),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Icon(
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White,
+                            imageVector = BilimiaoIcons.Common.Danmukunum,
+                            contentDescription = "弹幕数"
+                        )
+                        Text(
+                            modifier = Modifier.padding(start = 2.dp),
+                            text = damukuNum,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (duration != null) {
+                        Text(
+                            modifier = Modifier.padding(start = 2.dp)
+                                .semantics {
+                                    contentDescription = "视频时长：$duration"
+                                },
+                            text = duration,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+            if (title != null) {
+                TitleWithChargeBadge(
+                    title = AnnotatedString(title),
+                    isChargeVideo = isChargeVideo,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 40.dp),
                     color = MaterialTheme.colorScheme.onBackground,
                     style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-        }
-        if (upperName != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    imageVector = BilimiaoIcons.Common.Upper,
-                    contentDescription = "UP主",
-                )
-                Text(
-                    modifier = Modifier.padding(start = 2.dp),
-                    text = upperName,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            if (upperName != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        imageVector = BilimiaoIcons.Common.Upper,
+                        contentDescription = "UP主",
+                    )
+                    Text(
+                        modifier = Modifier.padding(start = 2.dp),
+                        text = upperName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
         if (remark != null) {

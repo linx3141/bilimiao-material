@@ -84,7 +84,7 @@ private fun UserFaceImage(
                     listOf(
                         PreviewImageModel(
                             originalUrl = UrlUtil.autoHttps(face),
-                            previewUrl = UrlUtil.autoHttps(face) + "@200w_200h",
+                            previewUrl = UrlUtil.autoHttps(face) + "@600w_600h",
                             height = 200f,
                             width = 200f
                         )

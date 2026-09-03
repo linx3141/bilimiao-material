@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.rank.content
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -7,9 +11,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -25,9 +33,14 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.mine.MyFollowViewModel
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.store.UserStore
@@ -147,29 +160,31 @@ internal fun RankListContent(
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh() },
     ) {
+        val colCount = rememberGridColumnCount(330.dp)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(330.dp),
+            columns = GridCells.Fixed(colCount),
             modifier = Modifier.padding(
                 start = windowInsets.leftDp.dp,
                 end = windowInsets.rightDp.dp,
-            )
+            ),
+            contentPadding = PaddingValues(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list.size, { list[it].param }) {
-                val item = list[it]
+            itemsIndexed(
+                list,
+                key = { _, item -> item.param },
+            ) { index, item ->
+                // 保留 m3e 分段卡片样式 + 排名序号，多列分段排列
                 Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(
-                            end = 10.dp,
-                            top = 5.dp,
-                            bottom = 5.dp,
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         modifier = Modifier.width(30.dp),
-                        text = (it + 1).toString(),
+                        text = (index + 1).toString(),
                         textAlign = TextAlign.Center,
-                        color = if (it > 2) {
+                        color = if (index > 2) {
                             MaterialTheme.colorScheme.onBackground
                         } else {
                             MaterialTheme.colorScheme.primary
@@ -182,6 +197,7 @@ internal fun RankListContent(
                         upperName = item.name,
                         playNum = item.play.toString(),
                         damukuNum = item.danmaku.toString(),
+                        segmentedShape = gridSegmentedShape(index, list.size, colCount),
                         onClick = {
                             viewModel.toVideoDetail(item)
                         }

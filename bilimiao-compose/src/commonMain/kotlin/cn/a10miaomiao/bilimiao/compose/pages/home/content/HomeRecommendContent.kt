@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.home.content
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -11,11 +14,15 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -38,10 +45,14 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.BilibiliNavigation
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.bangumi.BangumiDetailPage
 
@@ -56,6 +67,7 @@ import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.store.FilterStore
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
+import com.a10miaomiao.bilimiao.comm.utils.miaoLogger
 import coil3.compose.AsyncImage
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +124,12 @@ private class HomeRecommendContentViewModel(
                             && it.args != null
                             && it.args!!.up_id != null
                             && filterStore.filterUpper(it.args!!.up_id!!)
+                }
+                // 诊断：输出首页推荐解码出的充电相关字段，便于确认标识判定
+                filterList.firstOrNull()?.let {
+                    miaoLogger() debug "充电标识-首页: ${it.title} " +
+                        "ugc_pay=${it.ugc_pay} charging_pay=${it.charging_pay?.level} " +
+                        "args.ugc_pay=${it.args?.ugc_pay}"
                 }
                 val newList = if (idx == 0L) mutableListOf()
                 else list.data.value.toMutableList()
@@ -200,43 +218,57 @@ internal fun HomeRecommendContent() {
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh() },
     ) {
+        val colCount = rememberGridColumnCount(
+            if (listStyle == 0) 300.dp else 180.dp,
+        )
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            columns = if (listStyle == 0) GridCells.Adaptive(300.dp)
-                else GridCells.Adaptive(180.dp),
+            columns = GridCells.Fixed(colCount),
             contentPadding = windowInsets.toPaddingValues(
-                top = 0.dp,
-            )
+                left = 12.dp,
+                right = 12.dp,
+                top = 12.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list, { it.idx }) {
+            itemsIndexed(
+                list,
+                key = { _, item -> item.idx },
+            ) { index, item ->
                 if (listStyle == 0) {
+                    // 保留 m3e 分段卡片样式，多列分段排列（行列决定四角圆角）
                     VideoItemBox(
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 5.dp
-                        ),
-                        title = it.title,
-                        pic = it.cover,
-                        upperName = it.args?.up_name,
-                        playNum = it.cover_left_text_1,
-                        damukuNum = it.cover_left_text_2,
-                        duration = it.cover_right_text,
+                        modifier = Modifier,
+                        title = item.title,
+                        pic = item.cover,
+                        upperName = item.args?.up_name,
+                        playNum = item.cover_left_text_1,
+                        damukuNum = item.cover_left_text_2,
+                        duration = item.cover_right_text,
+                        isChargeVideo = item.ugc_pay == 1
+                            || item.charging_pay?.level != null
+                            || item.args?.ugc_pay == 1,
+                        segmentedShape = gridSegmentedShape(index, list.size, colCount),
                         onClick = {
-                            viewModel.toVideoDetail(it)
+                            viewModel.toVideoDetail(item)
                         }
                     )
                 } else {
                     MiniVideoItemBox(
                         modifier = Modifier.padding(5.dp),
-                        title = it.title,
-                        pic = it.cover,
-                        upperName = it.args?.up_name,
-                        playNum = it.cover_left_text_1,
-                        damukuNum = it.cover_left_text_2,
-                        duration = it.cover_right_text,
+                        title = item.title,
+                        pic = item.cover,
+                        upperName = item.args?.up_name,
+                        playNum = item.cover_left_text_1,
+                        damukuNum = item.cover_left_text_2,
+                        duration = item.cover_right_text,
+                        isChargeVideo = item.ugc_pay == 1
+                            || item.charging_pay?.level != null
+                            || item.args?.ugc_pay == 1,
                         onClick = {
-                            viewModel.toVideoDetail(it)
+                            viewModel.toVideoDetail(item)
                         }
                     )
                 }

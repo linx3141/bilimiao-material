@@ -51,34 +51,37 @@ actual object CompressionTools {
     }
 
     actual fun decompressXML(data: ByteArray): ByteArray {
-        var data = data
-        val dest = ByteArray(data.size + 2)
-        System.arraycopy(data, 0, dest, 2, data.size)
-        dest[0] = 0x78
-        dest[1] = 0x01
-        data = dest
-        val decompresser = Inflater()
-        decompresser.setInput(data)
-        val bufferArray = ByteArray(1024)
-        val baos = ByteArrayOutputStream(1024)
-        try {
-            var i = 1
-            while (i != 0) {
-                i = decompresser.inflate(bufferArray)
-                baos.write(bufferArray, 0, i)
-            }
-            data = baos.toByteArray()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            try {
-                baos.flush()
-                baos.close()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
+        // 明文 XML 直接返回
+        if (data.isNotEmpty() && data[0] == '<'.code.toByte()) {
+            return data
         }
-        decompresser.end()
+        // 尝试 zlib 格式（带头）
+        tryInflate(data, nowrap = false)?.let { return it }
+        // 尝试 raw deflate（无头，B站弹幕接口实际返回格式）
+        tryInflate(data, nowrap = true)?.let { return it }
+        // 全部失败，返回原始数据
         return data
+    }
+
+    private fun tryInflate(data: ByteArray, nowrap: Boolean): ByteArray? {
+        val decompresser = Inflater(nowrap)
+        return try {
+            decompresser.setInput(data)
+            val baos = ByteArrayOutputStream(data.size)
+            val bufferArray = ByteArray(1024)
+            while (!decompresser.finished()) {
+                val count = decompresser.inflate(bufferArray)
+                if (count == 0) {
+                    break
+                }
+                baos.write(bufferArray, 0, count)
+            }
+            val result = baos.toByteArray()
+            if (result.isEmpty()) null else result
+        } catch (e: DataFormatException) {
+            null
+        } finally {
+            decompresser.end()
+        }
     }
 }

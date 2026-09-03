@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.search.content
 
 import androidx.compose.material.icons.Icons
@@ -13,10 +15,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -38,16 +45,19 @@ import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
+import cn.a10miaomiao.bilimiao.compose.common.mypage.LocalPageConfigState
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.dyanmic.DynamicItemCard
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
-import cn.a10miaomiao.bilimiao.compose.pages.search.components.MoreConditionsDialog
-import cn.a10miaomiao.bilimiao.compose.pages.search.components.MoreConditionsDialogState
+import cn.a10miaomiao.bilimiao.compose.pages.search.components.SearchFilterMenu
+import cn.a10miaomiao.bilimiao.compose.pages.search.components.SearchFilterState
 import cn.a10miaomiao.bilimiao.compose.pages.search.components.SearchItemCard
 import com.a10miaomiao.bilimiao.comm.mypage.MenuActions
 import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
@@ -87,9 +97,9 @@ private class SearchAllContentViewModel(
     )
     val rankOrder = mutableStateOf(rankOrderList[0])
 
-    val moreConditionsDialogState = MoreConditionsDialogState(
+    val searchFilterState = SearchFilterState(
         regionStore,
-        onConfirm = ::confirmConditions
+        onChange = ::applyConditions
     )
     val hasFilter = mutableStateOf(false)
 
@@ -101,7 +111,7 @@ private class SearchAllContentViewModel(
         next: String = _next
     ) = viewModelScope.launch(Dispatchers.IO) {
         try {
-            val moreConditions = moreConditionsDialogState.data
+            val moreConditions = searchFilterState.data
             val order = rankOrder.value.first
             val timeType = moreConditions.timeType
                 .let { if (it == 0) "" else "${it}d" }
@@ -170,8 +180,8 @@ private class SearchAllContentViewModel(
         loadData("")
     }
 
-    fun confirmConditions() {
-        val moreConditions = moreConditionsDialogState.data
+    fun applyConditions() {
+        val moreConditions = searchFilterState.data
         hasFilter.value = moreConditions.timeType != 0
                 || moreConditions.regionList[0] != 0
                 || moreConditions.durationList[0] != 0
@@ -188,9 +198,6 @@ private class SearchAllContentViewModel(
                 } ?: rankOrderList[0]
                 refresh()
             }
-            MenuKeys.filter -> {
-                moreConditionsDialogState.open()
-            }
         }
     }
 
@@ -205,6 +212,20 @@ private fun SearchAllContentConfig(
     keyword: String,
     viewModel: SearchAllContentViewModel,
 ) {
+    // 注册“筛选”的自定义分组下拉菜单内容，供底栏按 MenuKeys.filter 取用。
+    // 不能把 @Composable 函数类型放进 comm 层（无 Compose 编译器插件会导致 ABI 不一致）。
+    val pageConfigState = LocalPageConfigState.current
+    DisposableEffect(pageConfigState, viewModel) {
+        pageConfigState?.setCustomMenuContent(MenuKeys.filter) { dismiss ->
+            SearchFilterMenu(
+                state = viewModel.searchFilterState,
+                onDismiss = dismiss,
+            )
+        }
+        onDispose {
+            pageConfigState?.setCustomMenuContent(MenuKeys.filter, null)
+        }
+    }
     val rankOrder by viewModel.rankOrder
     val hasFilter by viewModel.hasFilter
     val pageConfigId = PageConfig(
@@ -291,18 +312,29 @@ internal fun SearchAllContent(
             modifier = Modifier.fillMaxSize(),
             columns = GridCells.Adaptive(300.dp),
             contentPadding = windowInsets.toPaddingValues(
-                top = 0.dp,
-            )
+                top = 12.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
-                val cardItem = it.cardItem
+            itemsIndexed(
+                list,
+                span = { _, _ -> GridItemSpan(maxLineSpan) },
+            ) { index, item ->
+                val cardItem = item.cardItem
                 if (cardItem != null) {
-                    SearchItemCard(
-                        cardItem,
-                        onClick = {
-                            viewModel.toDetailPage(it)
-                        }
-                    )
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            list.size,
+                        ),
+                    ) {
+                        SearchItemCard(
+                            cardItem,
+                            onClick = {
+                                viewModel.toDetailPage(item)
+                            }
+                        )
+                    }
                 }
             }
             item(
@@ -319,9 +351,5 @@ internal fun SearchAllContent(
             }
         }
     }
-
-    MoreConditionsDialog(
-        state = viewModel.moreConditionsDialogState
-    )
 
 }

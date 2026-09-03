@@ -2,8 +2,11 @@ package cn.a10miaomiao.bilimiao.compose.pages.download
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +22,8 @@ import cn.a10miaomiao.bilimiao.compose.common.download.entry.CurrentDownloadInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.pages.download.components.DownloadDetailItem
 import cn.a10miaomiao.bilimiao.compose.pages.download.components.DownloadListItem
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
@@ -180,6 +185,7 @@ internal class DownloadDetailPageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun DownloadDetailPageContent(
     dirPath: String,
@@ -203,35 +209,48 @@ internal fun DownloadDetailPageContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = windowInsets.leftDp.dp, end = windowInsets.rightDp.dp)
+                .padding(start = windowInsets.leftDp.dp, end = windowInsets.rightDp.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
             item {
                 Column() {
                     Spacer(modifier = Modifier.height(windowInsets.topDp.dp))
                     downloadInfo?.let {
-                        DownloadListItem(curDownload, it, onClick = {})
+                        DownloadListItem(
+                            curDownload,
+                            it,
+                            onClick = {},
+                        )
                     }
                 }
             }
-            items(
+            itemsIndexed(
                 downloadItems,
-            ) { item ->
-                DownloadDetailItem(
-                    curDownload = curDownload,
-                    item = item,
-                    onClick = {
-                        viewModel.itemClick(item)
-                    },
-                    onStartClick = {
-                        viewModel.startClick(item)
-                    },
-                    onPauseClick = {
-                        viewModel.pauseClick(item, it)
-                    },
-                    onDeleteClick = {
-                        viewModel.deleteDownload(item, dirPath)
-                    }
-                )
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        downloadItems.size,
+                    ),
+                ) {
+                    DownloadDetailItem(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        curDownload = curDownload,
+                        item = item,
+                        onClick = {
+                            viewModel.itemClick(item)
+                        },
+                        onStartClick = {
+                            viewModel.startClick(item)
+                        },
+                        onPauseClick = {
+                            viewModel.pauseClick(item, it)
+                        },
+                        onDeleteClick = {
+                            viewModel.deleteDownload(item, dirPath)
+                        },
+                    )
+                }
             }
             item {
                 Spacer(modifier = Modifier.height(windowInsets.bottom))

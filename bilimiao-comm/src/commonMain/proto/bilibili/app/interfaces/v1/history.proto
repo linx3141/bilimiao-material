@@ -124,6 +124,18 @@ message CardUGC {
     int64 view = 15;
     //
     int64 state = 16;
+    // 稿件角标（如“充电专属”）
+    string badge = 17;
+    // 稿件角标信息
+    Badge badge_v2 = 18;
+}
+
+// 稿件角标信息
+message Badge {
+    // 角标文字
+    string text = 1;
+    // 角标图标url
+    string icon = 2;
 }
 
 // 清空历史记录-请求

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.mine.content
 
 import androidx.compose.foundation.background
@@ -11,14 +13,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +43,8 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.bangumi.BangumiItemBox
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
@@ -287,20 +294,29 @@ fun TypeBangumiContent(
                 state = listState,
                 columns = GridCells.Adaptive(300.dp),
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(list, { it.season_id }) {
-                    BangumiItemBox(
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 5.dp
+                itemsIndexed(
+                    list,
+                    key = { _, item -> item.season_id },
+                    span = { _, _ -> GridItemSpan(maxLineSpan) },
+                ) { index, item ->
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            list.size,
                         ),
-                        title = it.title,
-                        cover = it.cover,
-                        statusText = it.new_ep.index_show,
-                        desc = it.progress?.index_show,
-                        moreMenu = moreMenu,
-                        coverBadge1 = {
-                            val badge = it.badge_info
+                    ) {
+                        BangumiItemBox(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            title = item.title,
+                            cover = item.cover,
+                            statusText = item.new_ep.index_show,
+                            desc = item.progress?.index_show,
+                            moreMenu = moreMenu,
+                            coverBadge1 = {
+                            val badge = item.badge_info
                             if (badge != null && badge.text.isNotBlank()) {
                                 Text(
                                     modifier = Modifier
@@ -316,8 +332,8 @@ fun TypeBangumiContent(
                                 )
                             }
                         },
-                        coverBadge2 = {
-                            if (it.season_type == 4) {
+                            coverBadge2 = {
+                            if (item.season_type == 4) {
                                 Text(
                                     modifier = Modifier
                                         .background(
@@ -333,13 +349,14 @@ fun TypeBangumiContent(
                                 )
                             }
                         },
-                        onMenuItemClick = { menu ->
-                            viewModel.changeFollowStatus(it, menu.first)
-                        },
-                        onClick = {
-                            viewModel.toDetailPage(it)
-                        }
-                    )
+                            onMenuItemClick = { menu ->
+                                viewModel.changeFollowStatus(item, menu.first)
+                            },
+                            onClick = {
+                                viewModel.toDetailPage(item)
+                            }
+                        )
+                    }
                 }
                 item(
                     span = { GridItemSpan(maxLineSpan) }

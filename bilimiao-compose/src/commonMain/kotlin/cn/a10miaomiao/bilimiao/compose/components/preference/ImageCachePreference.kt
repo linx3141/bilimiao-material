@@ -15,6 +15,7 @@ import cn.a10miaomiao.bilimiao.compose.common.clearImageCache
 import cn.a10miaomiao.bilimiao.compose.common.getImageCacheSize
 import cn.a10miaomiao.bilimiao.compose.common.preference.Preference
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 inline fun LazyListScope.imageCachePreference(
     key: String,
@@ -80,7 +81,8 @@ fun ImageCachePreference(
                 ) {
                     Text("取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

@@ -47,6 +47,7 @@ fun DrawerAwareHorizontalPager(
     initialPage: Int = 0,
     pagerState: PagerState = rememberPagerState(initialPage = initialPage, pageCount = { pageCount }),
     userScrollEnabled: Boolean = true,
+    beyondViewportPageCount: Int = 0,
     content: @Composable (page: Int) -> Unit,
 ) {
     DrawerAwareHorizontalPager(
@@ -55,6 +56,7 @@ fun DrawerAwareHorizontalPager(
         edgeThreshold = edgeThreshold,
         onEdgeSwipeOpen = onEdgeSwipeOpen,
         userScrollEnabled = userScrollEnabled,
+        beyondViewportPageCount = beyondViewportPageCount,
         content = content,
     )
 }
@@ -77,6 +79,7 @@ fun DrawerAwareHorizontalPager(
     onEdgeSwipeOpen: () -> Unit,
     modifier: Modifier = Modifier,
     userScrollEnabled: Boolean = true,
+    beyondViewportPageCount: Int = 0,
     content: @Composable (page: Int) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -90,6 +93,7 @@ fun DrawerAwareHorizontalPager(
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = pagerScrollEnabled,
+        beyondViewportPageCount = beyondViewportPageCount,
         modifier = modifier
     ) { page ->
         Box(

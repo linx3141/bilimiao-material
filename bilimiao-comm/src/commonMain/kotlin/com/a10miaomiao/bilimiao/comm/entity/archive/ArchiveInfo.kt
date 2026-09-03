@@ -77,10 +77,22 @@ class ArchiveInfo(
     val title: String,
     val tname: String,
     val ugc_pay: Int,
+    /** 稿件角标（含“充电专属”等，与 PiliPlus 的 badges 一致） */
+    val badges: List<BadgeInfo>? = null,
     val uri: String,
     val videos: Int,
     val view_content: String
 ) {
+    @Serializable
+    data class BadgeInfo(
+        val text: String? = null,
+    )
+
+    /** 是否充电专属视频：旧版 ugc_pay / is_ugcpay 标志，或角标文案为“充电专属” */
+    val isChargeVideo: Boolean
+        get() = ugc_pay == 1 || is_ugcpay ||
+            badges?.any { it.text == "充电专属" } == true
+
 //    data class CursorAttr(
 //        val is_last_watched_arc: Boolean,
 //        val rank: Int

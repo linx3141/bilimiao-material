@@ -10,7 +10,10 @@ import pbandk.decodeFromByteArray
 import pbandk.decodeFromStream
 import pbandk.encodeToByteArray
 import java.io.File
+import java.io.InputStream
 import java.io.IOException
+import java.io.ByteArrayInputStream
+import java.io.SequenceInputStream
 import java.util.zip.GZIPInputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -78,11 +81,31 @@ class BiliGRPCHttp<ReqT : Message, RespT : Message>(
 
     private fun parseResponse(res: Response): RespT {
         var inputStream = res.body!!.byteStream()
+        // 调试：动态点赞响应结构异常，dump 原始响应字节以便定位
+        if (method.name.contains("DynamicThumb")) {
+            val raw = inputStream.readBytes()
+            miaoLogger().d(
+                "DynamicThumb respHeaders" to res.headers.toString(),
+                "rawHex" to raw.joinToString(separator = " ") { "%02x".format(it) }.take(400),
+            )
+            inputStream = ByteArrayInputStream(raw)
+        }
         inputStream.skip(5L)
 
-        // 手动解压gzip
-        if (res.header(BiliHeaders.GRPCEncoding) == BiliHeaders.GRPCEncodingGZIP) {
+        // 手动解压gzip：优先按响应头判断（兼容大小写），
+        // 部分接口（如动态点赞 DynamicThumb）响应头缺失时按 gzip magic（0x1f 0x8b）识别
+        val encoding = res.header(BiliHeaders.GRPCEncoding)?.lowercase()
+        if (encoding == BiliHeaders.GRPCEncodingGZIP) {
             inputStream = GZIPInputStream(inputStream)
+        } else {
+            val magic = ByteArray(2)
+            val read = inputStream.read(magic)
+            val isGzip = read == 2 && magic[0] == 0x1f.toByte() && magic[1] == 0x8b.toByte()
+            inputStream = if (isGzip) {
+                GZIPInputStream(SequenceInputStream(ByteArrayInputStream(magic), inputStream))
+            } else {
+                SequenceInputStream(ByteArrayInputStream(magic, 0, read), inputStream)
+            }
         }
 
         return method.respMessageCompanion

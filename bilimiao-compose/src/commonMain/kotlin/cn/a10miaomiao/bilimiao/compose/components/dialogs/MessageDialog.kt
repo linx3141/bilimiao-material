@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 
 @Composable
@@ -30,7 +31,8 @@ fun MessageDialog(
                     ) {
                         Text("确定")
                     }
-                }
+                },
+                properties = FullScreenDialogProperties,
             )
         }
         is MessageDialogState.LoadingState -> {
@@ -44,7 +46,8 @@ fun MessageDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
-                confirmButton = {  }
+                confirmButton = {  },
+                properties = FullScreenDialogProperties,
             )
         }
         is MessageDialogState.CustomState -> {
@@ -56,6 +59,7 @@ fun MessageDialog(
                 icon = messageState.icon,
                 title = messageState.title,
                 text = messageState.text,
+                properties = FullScreenDialogProperties,
             )
         }
     }

@@ -118,7 +118,9 @@ private fun Density.calculateComposeScaffoldGeometry(
         left = (rawWindowInsets.left + horizontalAppBarWidth).toPx(),
         top = embeddedPortraitContentTopPx,
         right = viewportWidthPx.toFloat(),
-        bottom = embeddedPortraitContentTopPx + viewportHeightPx.toFloat(),
+        // 嵌入式播放器（顶部小窗）时内容整体下移播放器高度，
+        // 底部必须固定在屏幕底部（高度相应缩小），否则内容底部的底栏会被顶出屏幕外。
+        bottom = viewportHeightPx.toFloat(),
     )
 
     val appBarVerticalBounds = if (hasVerticalAppBar) {

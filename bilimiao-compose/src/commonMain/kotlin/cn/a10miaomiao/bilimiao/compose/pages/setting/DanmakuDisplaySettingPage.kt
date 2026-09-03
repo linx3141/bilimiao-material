@@ -38,6 +38,9 @@ data class DanmakuDisplaySettingPage(
     val name: String = "default"
 ) : ComposePage {
 
+    // 与发送弹幕弹窗保持一致：不显示标题栏（关闭按钮 + 标题）
+    override val showBottomSheetTitleBar: Boolean = false
+
     @Composable
     override fun Content() {
         val viewModel: DanmakuDisplaySettingPageViewModel = diViewModel { DanmakuDisplaySettingPageViewModel(it) }

@@ -52,7 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import cn.a10miaomiao.bilimiao.compose.common.preference.ProvidePreferenceLocals
 import cn.a10miaomiao.bilimiao.compose.common.preference.preference
-import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceCategory
+import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceGroup
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
@@ -100,6 +100,17 @@ private class AboutPageViewModel(
 
     val versionState = MutableStateFlow<AppVersionState>(AppVersionState.None)
 
+    // 手动维护的贡献者（不在上游仓库 contributors 列表里）：
+    // 头像使用 GitHub 用户头像地址在线加载
+    private val extraContributors = listOf(
+        ContributorInfo(
+            email = "https://github.com/linx3141",
+            name = "linx3141",
+            contributions = 0,
+            avatar_url = "https://github.com/linx3141.png",
+        )
+    )
+
     fun toTestPage() {
         pageNavigation.navigate(TestPage())
     }
@@ -120,7 +131,7 @@ private class AboutPageViewModel(
             val data = MiaoHttp.request {
                 url = "https://api.github.com/repos/10miaomiao/bilimiao2/contributors"
             }.awaitCall().json<List<GithubContributorInfo>>()
-            contributorsList.value = data.map {
+            contributorsList.value = extraContributors + data.map {
                 ContributorInfo(
                     email = it.html_url,
                     name = it.login,
@@ -161,7 +172,7 @@ private class AboutPageViewModel(
                 )
             }
         }
-        contributorsList.value = list
+        contributorsList.value = extraContributors + list
     }
 
     fun checkUpdate() = viewModelScope.launch(Dispatchers.IO) {
@@ -212,8 +223,7 @@ private class AboutPageViewModel(
 }
 
 private const val MY_WEBSITE_URL = "https://10miaomiao.cn"
-private const val GITHUB_PROJECT_URL = "https://github.com/10miaomiao/bilimiao2"
-private const val GITEE_PROJECT_URL = "https://gitee.com/10miaomiao/bilimiao2"
+private const val GITHUB_PROJECT_URL = "https://github.com/linx3141/bilimiao-material"
 private const val WARN_TEXT = """1、本程序为哔哩哔哩动画的第三方APP，资源均来自哔哩哔哩动画(bilibili.com)
 2、如果侵犯您的合法权益，请及时联系本人以第一时间删除"""
 
@@ -328,106 +338,90 @@ private fun AboutPageContent(
                 contentPadding = innerPadding,
                 state = listState,
             ) {
-                preferenceCategory(
+                preferenceGroup(
                     key = "me",
                     title = {
                         Text("基本信息")
                     }
-                )
-                preference(
-                    key = "author",
-                    modifier = Modifier.itemStyle(),
-                    title = {
-                        Text("作者")
-                    },
-                    summary = {
-                        Text("10喵喵")
-                    },
-                    onClick = {
-                        platformContext.openUrl(MY_WEBSITE_URL)
-                    }
-                )
-                preference(
-                    key = "warn",
-                    modifier = Modifier.itemStyle(),
-                    title = {
-                        Text("使用声明")
-                    },
-                    summary = {
-                        Text(WARN_TEXT)
-                    }
-                )
-                preferenceCategory(
+                ) {
+                    preference(
+                        key = "author",
+                        title = {
+                            Text("作者")
+                        },
+                        summary = {
+                            Text("10喵喵 / DeepSeek(powered by linx3141)")
+                        },
+                        onClick = {
+                            platformContext.openUrl(MY_WEBSITE_URL)
+                        }
+                    )
+                    preference(
+                        key = "warn",
+                        title = {
+                            Text("使用声明")
+                        },
+                        summary = {
+                            Text(WARN_TEXT)
+                        }
+                    )
+                }
+                preferenceGroup(
                     key = "url",
                     title = {
                         Text("开源链接")
                     }
-                )
-                preference(
-                    key = "github",
-                    modifier = Modifier.itemStyle(),
-                    title = {
-                        Text("Github")
-                    },
-                    summary = {
-                        Text("github.com/10miaomiao/bilimiao2")
-                    },
-                    onClick = {
-                        platformContext.openUrl(GITHUB_PROJECT_URL)
-                    }
-                )
-                preference(
-                    key = "gitee",
-                    modifier = Modifier.itemStyle(),
-                    title = {
-                        Text("Gitee")
-                    },
-                    summary = {
-                        Text("gitee.com/10miaomiao/bilimiao2")
-                    },
-                    onClick = {
-                        platformContext.openUrl(GITEE_PROJECT_URL)
-                    }
-                )
-                preferenceCategory(
+                ) {
+                    preference(
+                        key = "github",
+                        title = {
+                            Text("Github")
+                        },
+                        summary = {
+                            Text("github.com/linx3141/bilimiao-material")
+                        },
+                        onClick = {
+                            platformContext.openUrl(GITHUB_PROJECT_URL)
+                        }
+                    )
+                }
+                preferenceGroup(
                     key = "contributors",
                     title = {
                         Text("贡献者")
                     }
-                )
-
-                contributionsList.value.forEach {
-                    if (it.name == "10miaomiao") {
-                        return@forEach
-                    }
-                    preference(
-                        key = "contributors.${it.name}",
-                        modifier = Modifier.itemStyle(),
-                        icon = it.avatar_url?.let { avatarUrl ->
-                            {
-                                AsyncImage(
-                                    model = avatarUrl,
-                                    contentDescription = null,
-                                    placeholder = painterResource(Res.drawable.bili_akari_img),
-                                    error = painterResource(Res.drawable.bili_akari_img),
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                )
-                            }
-                        },
-                        title = {
-                            Text(it.name)
-                        },
-                        summary = {
-                            Text(it.email)
-                        },
-                        onClick = {
-                            platformContext.openUrl(it.email)
+                ) {
+                    contributionsList.value.forEach {
+                        if (it.name == "10miaomiao") {
+                            return@forEach
                         }
-                    )
+                        preference(
+                            key = "contributors.${it.name}",
+                            icon = it.avatar_url?.let { avatarUrl ->
+                                {
+                                    AsyncImage(
+                                        model = avatarUrl,
+                                        contentDescription = null,
+                                        placeholder = painterResource(Res.drawable.bili_akari_img),
+                                        error = painterResource(Res.drawable.bili_akari_img),
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    )
+                                }
+                            },
+                            title = {
+                                Text(it.name)
+                            },
+                            summary = {
+                                Text(it.email)
+                            },
+                            onClick = {
+                                platformContext.openUrl(it.email)
+                            }
+                        )
+                    }
                 }
 
             }

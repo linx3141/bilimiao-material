@@ -26,14 +26,18 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,8 +63,10 @@ import cn.a10miaomiao.bilimiao.compose.common.foundation.annotatedText
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
-import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.layout.PlayerAnchorBox
+import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDetailViewModel
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoCoverBox
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoInfoBox
@@ -76,7 +82,7 @@ import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 import org.kodein.di.compose.rememberInstance
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun VideoDetailContent(
     viewModel: VideoDetailViewModel,
@@ -143,6 +149,8 @@ fun VideoDetailContent(
                 }
                 myItem {
                     key = MenuKeys.favourite
+                    // 已收藏时底栏"收藏"项显示为激活状态
+                    selected = videoReqUser.favorite == 1
                     if (videoReqUser.favorite == 1) {
                         iconVector = androidx.compose.material.icons.Icons.Default.Star
                         title = "已收藏"
@@ -184,6 +192,7 @@ fun VideoDetailContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = innerPadding,
         columns = GridCells.Adaptive(300.dp),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
         item(
             span = { GridItemSpan(maxLineSpan) }
@@ -228,7 +237,7 @@ fun VideoDetailContent(
                 FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 10.dp),
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
@@ -253,7 +262,7 @@ fun VideoDetailContent(
                 if (videoStat != null) {
                     VideoStatBox(
                         modifier = Modifier
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 12.dp),
                         viewModel = viewModel,
                         arc = arcData,
                         stat = videoStat,
@@ -268,7 +277,7 @@ fun VideoDetailContent(
                 if (!playListState.isEmpty()) {
                     VideoPlayListBox(
                         modifier = Modifier
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 12.dp),
                         viewModel = viewModel,
                         arc = arcData,
                         ugcSeason = ugcSeason,
@@ -285,7 +294,7 @@ fun VideoDetailContent(
                 if (ugcSeason != null) {
                     VideoUgcSeasonBox(
                         modifier = Modifier
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 12.dp),
                         viewModel = viewModel,
                         arc = arcData,
                         ugcSeason = ugcSeason,
@@ -300,22 +309,30 @@ fun VideoDetailContent(
                 }
             }
         }
-        items(detailData.relates) {
-            VideoItemBox(
-                modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = 5.dp
+        itemsIndexed(
+            detailData.relates,
+            span = { _, _ -> GridItemSpan(maxLineSpan) },
+        ) { index, item ->
+            CompositionLocalProvider(
+                LocalListItemShapes provides segmentedItemShapes(
+                    index,
+                    detailData.relates.size,
                 ),
-                title = it.title,
-                pic = it.pic,
-                upperName = it.author?.name,
-                playNum = it.stat?.view?.let(NumberUtil::converString),
-                damukuNum = it.stat?.danmaku?.let(NumberUtil::converString),
-                duration = NumberUtil.converDuration(it.duration),
-                onClick = {
-                    viewModel.toVideoPage(it.aid.toString())
-                }
-            )
+            ) {
+                VideoItemBox(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    title = item.title,
+                    pic = item.pic,
+                    upperName = item.author?.name,
+                    playNum = item.stat?.view?.let(NumberUtil::converString),
+                    damukuNum = item.stat?.danmaku?.let(NumberUtil::converString),
+                    duration = NumberUtil.converDuration(item.duration),
+                    isChargeVideo = item.badge.contains("充电"),
+                    onClick = {
+                        viewModel.toVideoPage(item.aid.toString())
+                    }
+                )
+            }
         }
     }
 }

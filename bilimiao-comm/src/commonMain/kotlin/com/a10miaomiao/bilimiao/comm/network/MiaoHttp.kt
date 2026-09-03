@@ -15,8 +15,14 @@ import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/**
+ * 全局共享 OkHttpClient：复用连接池（keep-alive、TLS 会话、DNS 缓存），
+ * 避免每次请求都新建客户端导致 TCP 连接无法复用。
+ */
+private val sharedOkHttpClient = OkHttpClient()
+
 class MiaoHttp(var url: String? = null) {
-    private var client = OkHttpClient()
+    private var client = sharedOkHttpClient
     private val requestBuilder = Request.Builder()
     val headers = mutableMapOf<String, String>()
     var method = GET

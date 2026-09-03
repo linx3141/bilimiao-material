@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user.content
 
 import androidx.compose.material.icons.Icons
@@ -5,7 +7,9 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,13 +20,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +49,9 @@ import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.ExpressiveSwitch
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
@@ -50,6 +59,7 @@ import cn.a10miaomiao.bilimiao.compose.pages.playlist.PlayListPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.components.TitleBar
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
 import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
+import com.a10miaomiao.bilimiao.comm.delegate.player.createVideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.ResultInfo
 import com.a10miaomiao.bilimiao.comm.entity.media.MediaListV2Info
 import com.a10miaomiao.bilimiao.comm.entity.media.MediaResponseV2Info
@@ -168,7 +178,7 @@ private class UserMedialistDetailViewMode(
             addPlayList()
             if (playerStore.state.cid != item.id) {
                 playerDelegate.openPlayer(
-                    VideoPlayerSource(
+                    createVideoPlayerSource(
                         mainTitle = item.title,
                         title = item.title,
                         coverUrl = item.cover,
@@ -313,8 +323,9 @@ fun UserMedialistDetailContent(
                 Text(
                     text = "自动连播",
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                Switch(
+                ExpressiveSwitch(
                     modifier = Modifier.scale(0.75f),
                     checked = viewModel.isAutoPlay,
                     onCheckedChange = viewModel::changeAutoPlay,
@@ -329,20 +340,33 @@ fun UserMedialistDetailContent(
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(300.dp),
+                contentPadding = PaddingValues(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(list) { item ->
-                    VideoItemBox(
-                        modifier = Modifier.padding(10.dp),
-                        title = item.title,
-                        pic = item.cover,
-                        remark = NumberUtil.converCTime(item.pubtime),
-                        playNum = item.cnt_info.play.toString(),
-                        damukuNum = item.cnt_info.danmaku.toString(),
-                        duration = NumberUtil.converDuration(item.duration),
-                        onClick = {
-                            viewModel.openVideo(item)
-                        }
-                    )
+                itemsIndexed(
+                    list,
+                    span = { _, _ -> GridItemSpan(maxLineSpan) },
+                ) { index, item ->
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            list.size,
+                        ),
+                    ) {
+                        VideoItemBox(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            title = item.title,
+                            pic = item.cover,
+                            remark = NumberUtil.converCTime(item.pubtime),
+                            playNum = item.cnt_info.play.toString(),
+                            damukuNum = item.cnt_info.danmaku.toString(),
+                            duration = NumberUtil.converDuration(item.duration),
+                            isChargeVideo = item.rights.ugc_pay == 1,
+                            onClick = {
+                                viewModel.openVideo(item)
+                            }
+                        )
+                    }
                 }
                 item(
                     span = { GridItemSpan(maxLineSpan) }

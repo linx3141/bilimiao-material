@@ -101,16 +101,16 @@ class FilterStore(override val di: DI) :
         GlobalToaster.show("删除成功")
     }
 
-    fun addUpper(mid: Long, name: String) {
+    fun addUpper(mid: Long, name: String, showToast: Boolean = true) {
         runBlocking { filterUpperDao.insert(FilterUpperEntity(mid = mid, name = name)) }
         queryFilterUpper()
-        GlobalToaster.show("已添加屏蔽")
+        if (showToast) GlobalToaster.show("已添加屏蔽")
     }
 
-    fun deleteUpper(mid: Long) {
+    fun deleteUpper(mid: Long, showToast: Boolean = true) {
         runBlocking { filterUpperDao.deleteByMid(mid) }
         queryFilterUpper()
-        GlobalToaster.show("已取消屏蔽")
+        if (showToast) GlobalToaster.show("已取消屏蔽")
     }
 
     fun deleteUpper(midList: List<Long>) {

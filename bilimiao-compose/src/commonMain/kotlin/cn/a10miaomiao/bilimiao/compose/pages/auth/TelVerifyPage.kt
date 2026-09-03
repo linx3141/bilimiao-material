@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -360,6 +361,7 @@ private fun TelVerifyPageCompose(
                 text = "帐号验证",
                 fontSize = 20.sp,
                 textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier
                     .padding(top = 45.dp, bottom = 20.dp)
                     .fillMaxWidth()
@@ -369,6 +371,7 @@ private fun TelVerifyPageCompose(
                     text = "手机号：${tmpAccountInfo?.hide_tel}",
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier
                         .padding(bottom = 40.dp)
                         .fillMaxWidth()
@@ -378,52 +381,50 @@ private fun TelVerifyPageCompose(
                     text = "邮箱：${tmpAccountInfo?.hide_mail}",
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier
                         .padding(bottom = 40.dp)
                         .fillMaxWidth()
                 )
             }
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    verticalAlignment = Alignment.CenterVertically,
-//                ) {
-            TextField(
-                label = {
-                    if (verifyType == TelVerifyPageViewModel.VerifyType.TEL) {
-                        Text(text = "短信验证码")
-                    } else if (verifyType == TelVerifyPageViewModel.VerifyType.EMAIL)  {
-                        Text(text = "邮箱验证码")
-                    } else {
-                        Text(text = "验证码")
-                    }
-                },
-                value = verifyCode,
-                onValueChange = viewModel::setVerifyCode,
+            // 验证码输入框：标准 Material 3 Expressive 样式（OutlinedTextField + 大圆角）
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                trailingIcon = {
-                    Box(modifier = Modifier.padding(end = 5.dp)) {
-                        Button(
-                            onClick = viewModel::sendClick,
-                            enabled = countdown == 0,
-                            modifier = Modifier.width(120.dp)
-                        ) {
-                            if (countdown == 0) {
-                                Text(text = "获取验证码")
-                            } else {
-                                Text(text = countdown.toString() + "秒")
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = verifyCode,
+                    onValueChange = viewModel::setVerifyCode,
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text(
+                            text = when (verifyType) {
+                                TelVerifyPageViewModel.VerifyType.TEL -> "短信验证码"
+                                TelVerifyPageViewModel.VerifyType.EMAIL -> "邮箱验证码"
                             }
-                        }
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = verifyCodeKeyboardActions,
+                    shape = MaterialTheme.shapes.extraLarge,
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Button(
+                    onClick = viewModel::sendClick,
+                    enabled = countdown == 0,
+                    modifier = Modifier.height(56.dp),
+                ) {
+                    if (countdown == 0) {
+                        Text(text = "获取验证码")
+                    } else {
+                        Text(text = countdown.toString() + "秒")
                     }
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = verifyCodeKeyboardActions,
-            )
-
-//                }
+                }
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = viewModel::verifyTel,

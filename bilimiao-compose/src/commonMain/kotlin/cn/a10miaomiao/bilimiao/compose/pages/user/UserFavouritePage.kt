@@ -56,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.kodein.di.compose.rememberInstance
 import kotlinx.serialization.Serializable
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 data class UserFavouritePage(
@@ -344,7 +345,8 @@ private fun UserFavouritePageContent(
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 

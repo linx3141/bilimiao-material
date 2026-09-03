@@ -25,15 +25,22 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,7 +53,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -55,14 +65,18 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.ORIENTATION_LANDSCAPE
 import cn.a10miaomiao.bilimiao.compose.ORIENTATION_PORTRAIT
+import cn.a10miaomiao.bilimiao.compose.PlayerFloatingLayoutState
 import cn.a10miaomiao.bilimiao.compose.PlayerState
 import cn.a10miaomiao.bilimiao.compose.StartViewState
 
@@ -152,7 +166,24 @@ fun ComposeScaffold(
         }
     }
 
-    val rawWindowInsets = WindowInsets.safeDrawing.toContentInsets()
+    // 布局骨架只响应系统栏，完全不读取 IME：
+    // safeDrawing 包含 ime，若随输入法动画每帧变化，脚手架（常驻 Tab、底栏、播放器层）
+    // 会在展开/收起动画期间每帧重新 measure 整棵布局树，造成输入卡顿
+    // （与 KernelSU 一致：底栏固定在屏幕底部被键盘覆盖，IME 避让交给页面自身的 imePadding）。
+    // 横屏时忽略摄像头打孔区域（displayCutout），让内容延伸到摄像头区域；
+    // 竖屏保留完整 safeDrawing（摄像头与状态栏重叠，不能排除否则顶部 inset 丢失导致内容与状态栏重合）
+    val isLandscape = LocalWindowInfo.current.containerSize.width >
+        LocalWindowInfo.current.containerSize.height
+    val rawWindowInsets = if (isLandscape) {
+        WindowInsets.safeDrawing
+            .exclude(WindowInsets.displayCutout)
+            .exclude(WindowInsets.ime)
+            .toContentInsets()
+    } else {
+        WindowInsets.safeDrawing
+            .exclude(WindowInsets.ime)
+            .toContentInsets()
+    }
     val density = LocalDensity.current
     val densityFloat = density.density
     val playerLayoutState = remember(
@@ -663,6 +694,11 @@ internal fun PlayerLayer(
     var offsetX by remember { mutableStateOf(0.dp) }
     var offsetY by remember { mutableStateOf(0.dp) }
     var isDragging by remember { mutableStateOf(false) }
+    // 浮窗外层容器在窗口（root）中的位置，用于缩放时把触控点换算成绝对坐标
+    var windowPos by remember { mutableStateOf(Offset.Zero) }
+    // 挂起（收起）状态：挂起前保存的浮窗布局，用于点击按钮恢复
+    var isHoldUp by remember { mutableStateOf(false) }
+    var savedFloatingState by remember { mutableStateOf<PlayerFloatingLayoutState?>(null) }
 
     val displayMode = when {
         !playerState.showPlayer -> PlayerDisplayMode.Hidden
@@ -674,6 +710,21 @@ internal fun PlayerLayer(
     }
     val screenWidth = viewportWidth
     val screenHeight = viewportHeight
+    // 播放器下方白条的边距与触摸层高度、屏幕左右边缘挂起判定阈值
+    val handleSpacing = 4.dp
+    val handleBarHeight = 24.dp
+    val edgeThreshold = 48.dp
+
+    /**
+     * 浮窗整体（含下方白条）在垂直方向多占的高度。
+     * 挂起时不显示白条，因此高度为 0。
+     */
+    fun floatingHandleExtent(): Dp =
+        if (displayMode == PlayerDisplayMode.FloatingLandscape && !isHoldUp) {
+            handleSpacing + handleBarHeight
+        } else {
+            0.dp
+        }
 
     fun clampFloatingOffset(
         ox: Dp,
@@ -684,7 +735,8 @@ internal fun PlayerLayer(
         val minX = safeDrawingInsets.left
         val minY = safeDrawingInsets.top
         val maxX = (screenWidth - safeDrawingInsets.right - w).coerceAtLeast(minX)
-        val maxY = (screenHeight - safeDrawingInsets.bottom - h).coerceAtLeast(minY)
+        val maxY = (screenHeight - safeDrawingInsets.bottom - h - floatingHandleExtent())
+            .coerceAtLeast(minY)
         return ox.coerceIn(minX, maxX) to oy.coerceIn(minY, maxY)
     }
 
@@ -698,6 +750,61 @@ internal fun PlayerLayer(
                 initialized = true,
             )
         )
+    }
+
+    /**
+     * 挂起（收起）播放器浮窗：缩小到固定宽度（保持比例），
+     * 根据触控点所在半边贴到屏幕左/右边缘。
+     *
+     * @param touchScreenX 松手时触控点在屏幕坐标系的 x（px）
+     */
+    fun holdUpToEdge(touchScreenX: Float) {
+        savedFloatingState = playerState.floatingPlayerLayoutState
+        val holdWidth = 200.dp
+        val holdHeight =
+            (holdWidth * (currentHeight / currentWidth)).coerceAtLeast(80.dp)
+        isHoldUp = true
+        val toLeft = touchScreenX < with(density) { screenWidth.toPx() } / 2f
+        val targetX = if (toLeft) {
+            safeDrawingInsets.left
+        } else {
+            screenWidth - safeDrawingInsets.right - holdWidth
+        }
+        currentWidth = holdWidth
+        currentHeight = holdHeight
+        val (finalX, finalY) = clampFloatingOffset(
+            targetX,
+            offsetY,
+            holdWidth,
+            holdHeight,
+        )
+        offsetX = finalX
+        offsetY = finalY
+        updateFloatingState()
+        playerState.setHoldUp(true)
+    }
+
+    /**
+     * 恢复挂起前的浮窗尺寸和位置。
+     */
+    fun restoreHoldUp() {
+        val saved = savedFloatingState
+        savedFloatingState = null
+        isHoldUp = false
+        if (saved != null && saved.initialized) {
+            currentWidth = with(density) { saved.widthPx.toDp() }
+            currentHeight = with(density) { saved.heightPx.toDp() }
+            val (targetX, targetY) = clampFloatingOffset(
+                with(density) { saved.offsetXPx.toDp() },
+                with(density) { saved.offsetYPx.toDp() },
+                currentWidth,
+                currentHeight,
+            )
+            offsetX = targetX
+            offsetY = targetY
+        }
+        updateFloatingState()
+        playerState.setHoldUp(false)
     }
 
     suspend fun animateToSafeArea() {
@@ -751,6 +858,9 @@ internal fun PlayerLayer(
                 offsetY = 0.dp
             }
             PlayerDisplayMode.FloatingLandscape -> {
+                // 拖动/缩放进行中：baseBounds 变化会触发本协程重启，
+                // 此时不应恢复本地尺寸/位置（否则与手指状态竞争导致闪烁）
+                if (isDragging) return@LaunchedEffect
                 val floatingState = playerState.floatingPlayerLayoutState
                 if (floatingState.initialized) {
                     currentWidth = with(density) { floatingState.widthPx.toDp() }
@@ -798,80 +908,244 @@ internal fun PlayerLayer(
         }
     }
 
+    // 浮窗主体不再全区域拦截触摸：只有白条拖动区、底部缩放区由 Compose 处理，
+    // 其余区域放行给 AndroidView（播放器控件、音量/亮度手势等）。
     val modifier = if (displayMode == PlayerDisplayMode.FloatingLandscape) {
+        Modifier.offset(x = offsetX, y = offsetY)
+    } else {
         Modifier
-            .offset(x = offsetX, y = offsetY)
-            .size(currentWidth, currentHeight)
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val downPos = down.position
+    }
 
-                    val bottomEdgePx = 12.dp.toPx()
-                    val isBottomEdge = currentHeight.toPx() - downPos.y <= bottomEdgePx
-
-                    val startOffsetX = offsetX
-                    val startWidth = currentWidth
-                    val startHeight = currentHeight
-                    val startWidthPx = startWidth.toPx()
-                    val startHeightPx = startHeight.toPx()
-                    val aspectRatio = startWidthPx / startHeightPx
-
-                    val pointerId = down.id
-                    var dragging = false
-                    isDragging = true
-
-                    val minWidthPx = 200.dp.toPx()
-                    val maxWidthPx = 800.dp.toPx()
-                    val minHeightPx = 112.dp.toPx()
-                    val maxHeightPx = 450.dp.toPx()
-
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                        if (!change.pressed) {
-                            isDragging = false
-                            if (dragging) {
-                                scope.launch { animateToSafeArea() }
+    if (displayMode == PlayerDisplayMode.FloatingLandscape) {
+        // 横屏浮动播放器：播放器 + 下方白条（挂起时隐藏白条）。
+        // 外层 Box 向外扩展 overlay：缩放热区放在播放器外围，不遮挡播放器控件。
+        val overlay = 24.dp
+        val totalHeight = currentHeight + floatingHandleExtent()
+        Box(
+            modifier = Modifier
+                .offset(x = offsetX - overlay, y = offsetY - overlay)
+                .size(currentWidth + overlay * 2, totalHeight + overlay * 2)
+                .onGloballyPositioned { windowPos = it.positionInRoot() },
+        ) {
+            if (!isHoldUp) {
+                // 播放器外围整圈缩放热区：在圈内任意位置拖动都可缩放。
+                // 按手指相对播放器的方位固定对边：拖左/上侧时右/下边缘不动，
+                // 拖右/下侧时左/上边缘不动；播放器内部放行触摸。
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val downPos = down.position
+                                val px = with(density) { overlay.toPx() }
+                                val w = with(density) { currentWidth.toPx() }
+                                val h = with(density) { currentHeight.toPx() }
+                                val inInner = downPos.x >= px && downPos.x <= px + w &&
+                                    downPos.y >= px && downPos.y <= px + h
+                                if (inInner) {
+                                    // 播放器内部：放行，不消费（交给播放器控件）
+                                    return@awaitEachGesture
+                                }
+                                down.consume()
+                                // 绝对坐标基准：按下时外层容器在窗口中的位置，
+                                // 之后用 offset 变化推算容器当前位置（避免节点坐标反馈衰减）
+                                val downWindowX = windowPos.x
+                                val downWindowY = windowPos.y
+                                val downOffsetX = offsetX
+                                val downOffsetY = offsetY
+                                // 按下时播放器四条边在窗口坐标系的位置
+                                val playerLeftPx = downWindowX + px
+                                val playerTopPx = downWindowY + px
+                                val playerRightPx = playerLeftPx + w
+                                val playerBottomPx = playerTopPx + h
+                                // 手指相对播放器中心方位：决定固定对边与缩放方向
+                                val toLeft = downPos.x < px + w / 2
+                                val toTop = downPos.y < px + h / 2
+                                val pointerId = down.id
+                                var dragging = false
+                                isDragging = true
+                                val minWidth = 200.dp
+                                val minHeight = 112.dp
+                                // 上限为屏幕可视区域（随设备/横竖屏动态变化），
+                                // 避免浮窗拖到固定值（如 450dp）就卡住
+                                val maxWidth = (screenWidth - safeDrawingInsets.left -
+                                    safeDrawingInsets.right).coerceAtLeast(minWidth)
+                                val maxHeight = (screenHeight - safeDrawingInsets.top -
+                                    safeDrawingInsets.bottom - floatingHandleExtent())
+                                    .coerceAtLeast(minHeight)
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                    if (!change.pressed) {
+                                        isDragging = false
+                                        break
+                                    }
+                                    if (!change.positionChanged()) continue
+                                    // 容器随 offset 移动：用 offset 变化推算当前容器窗口位置
+                                    val nodeDX = with(density) { (offsetX - downOffsetX).toPx() }
+                                    val nodeDY = with(density) { (offsetY - downOffsetY).toPx() }
+                                    // 手指绝对（窗口）坐标
+                                    val fingerX = downWindowX + nodeDX + change.position.x
+                                    val fingerY = downWindowY + nodeDY + change.position.y
+                                    if (!dragging) {
+                                        if (
+                                            abs(fingerX - (downWindowX + downPos.x)) < 2f &&
+                                            abs(fingerY - (downWindowY + downPos.y)) < 2f
+                                        ) continue
+                                        dragging = true
+                                    }
+                                    // 水平：角点跟手，对边固定
+                                    if (toLeft) {
+                                        currentWidth = with(density) { (playerRightPx - fingerX).toDp() }
+                                            .coerceIn(minWidth, maxWidth)
+                                        offsetX = with(density) { playerRightPx.toDp() } - currentWidth
+                                    } else {
+                                        currentWidth = with(density) { (fingerX - playerLeftPx).toDp() }
+                                            .coerceIn(minWidth, maxWidth)
+                                    }
+                                    // 垂直：角点跟手，对边固定
+                                    if (toTop) {
+                                        currentHeight = with(density) { (playerBottomPx - fingerY).toDp() }
+                                            .coerceIn(minHeight, maxHeight)
+                                        offsetY = with(density) { playerBottomPx.toDp() } - currentHeight
+                                    } else {
+                                        currentHeight = with(density) { (fingerY - playerTopPx).toDp() }
+                                            .coerceIn(minHeight, maxHeight)
+                                    }
+                                    updateFloatingState()
+                                    change.consume()
+                                }
                             }
-                            break
-                        }
-                        if (!change.positionChanged()) continue
-
-                        val deltaX = change.position.x - downPos.x
-                        val deltaY = change.position.y - downPos.y
-
-                        if (!dragging) {
-                            if (abs(deltaX) < 2f && abs(deltaY) < 2f) continue
-                            dragging = true
-                        }
-
-                        if (isBottomEdge) {
-                            val newHeightPx = (startHeightPx + deltaY).coerceIn(minHeightPx, maxHeightPx)
-                            val newWidthPx = (newHeightPx * aspectRatio).coerceIn(minWidthPx, maxWidthPx)
-                            val clampedHeightPx = newWidthPx / aspectRatio
-                            val deltaWPx = newWidthPx - startWidthPx
-
-                            currentWidth = newWidthPx.toDp()
-                            currentHeight = clampedHeightPx.toDp()
-                            val zoneWidth = startWidthPx / 3
-                            offsetX = when {
-                                downPos.x < zoneWidth -> startOffsetX - deltaWPx.toDp()
-                                downPos.x < zoneWidth * 2 -> startOffsetX - (deltaWPx / 2).toDp()
-                                else -> startOffsetX
-                            }
-                            updateFloatingState()
-                            change.consume()
-                        } else {
-                            val pan = change.position - change.previousPosition
-                            offsetX += pan.x.toDp()
-                            offsetY += pan.y.toDp()
-                            updateFloatingState()
-                            change.consume()
-                        }
+                        },
+                )
+            }
+            // 浮窗内容（播放器 + 白条），偏移 overlay 使浮窗左上角仍位于 offsetX/offsetY
+            Column(
+                modifier = Modifier
+                    .offset(x = overlay, y = overlay)
+                    .width(currentWidth),
+            ) {
+                // 播放器内容
+                Box(
+                    modifier = Modifier.size(currentWidth, currentHeight),
+                ) {
+                    playerContent()
+                    if (isHoldUp) {
+                        // 挂起状态：覆盖整个播放器，点击取消挂起，按住拖动挂起小窗
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown(requireUnconsumed = false)
+                                        down.consume()
+                                        val pointerId = down.id
+                                        var dragging = false
+                                        isDragging = true
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                            if (!change.pressed) {
+                                                isDragging = false
+                                                if (!dragging) {
+                                                    // 点击挂起小窗：取消挂起，恢复原尺寸
+                                                    restoreHoldUp()
+                                                } else {
+                                                    // 拖动结束：保持挂起状态，只回弹到安全区内
+                                                    scope.launch { animateToSafeArea() }
+                                                }
+                                                break
+                                            }
+                                            if (!change.positionChanged()) continue
+                                            val pan = change.position - change.previousPosition
+                                            if (!dragging) {
+                                                if (abs(pan.x) < 2f && abs(pan.y) < 2f) continue
+                                                dragging = true
+                                            }
+                                            // 增量式：浮窗位移 = 手指位移，完全跟手
+                                            offsetX += pan.x.toDp()
+                                            offsetY += pan.y.toDp()
+                                            updateFloatingState()
+                                            change.consume()
+                                        }
+                                    }
+                                },
+                        )
+                    }
+                }
+                if (!isHoldUp) {
+                    // 白条：位于播放器下方（外侧），正常边距
+                    Spacer(modifier = Modifier.height(handleSpacing))
+                    // 触控层：宽度为播放器宽度的 1/4，高度恢复 24dp，水平居中
+                    val barWidth = currentWidth / 4
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(barWidth)
+                            .height(handleBarHeight)
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    // 消费按下事件：点击白条区域不传给视频（避免误暂停）
+                                    down.consume()
+                                    val pointerId = down.id
+                                    var dragging = false
+                                    isDragging = true
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                        if (!change.pressed) {
+                                            isDragging = false
+                                            if (dragging) {
+                                                // 松手判定：触控点在屏幕左右边缘区域则收起，
+                                                // 否则回弹到安全区（继续正常放置）
+                                                // 白条层水平居中，需加上左偏移才是屏幕坐标
+                                                val barLeftOffset = (currentWidth - barWidth) / 2
+                                                val touchScreenX =
+                                                    with(density) { offsetX.toPx() } +
+                                                        with(density) { barLeftOffset.toPx() } +
+                                                        change.position.x
+                                                val edgePx = edgeThreshold.toPx()
+                                                if (
+                                                    touchScreenX <= edgePx ||
+                                                    touchScreenX >= with(density) { screenWidth.toPx() } - edgePx
+                                                ) {
+                                                    holdUpToEdge(touchScreenX)
+                                                } else {
+                                                    scope.launch { animateToSafeArea() }
+                                                }
+                                            }
+                                            break
+                                        }
+                                        if (!change.positionChanged()) continue
+                                        val pan = change.position - change.previousPosition
+                                        if (!dragging) {
+                                            if (abs(pan.x) < 2f && abs(pan.y) < 2f) continue
+                                            dragging = true
+                                        }
+                                        // 增量式：浮窗位移 = 手指位移，完全跟手
+                                        offsetX += pan.x.toDp()
+                                        offsetY += pan.y.toDp()
+                                        updateFloatingState()
+                                        change.consume()
+                                    }
+                                }
+                            },
+                    ) {
+                        // 白色拖动条（视觉手柄，居中，宽=触控层宽，高 5dp）
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(2.5.dp))
+                                .background(Color.White.copy(alpha = 0.93f)),
+                        )
                     }
                 }
             }
+        }
     } else {
         Modifier
     }

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.mine
 
 import cn.a10miaomiao.bilimiao.compose.common.BackHandler
@@ -39,10 +41,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -57,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,12 +82,16 @@ import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.MessageDialogState
 import cn.a10miaomiao.bilimiao.compose.components.layout.sticky.StickyHeaders
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.bangumi.BangumiDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserFavouriteDetailPage
 import com.a10miaomiao.bilimiao.comm.entity.comm.PaginationInfo
@@ -108,6 +118,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.format
 import kotlinx.datetime.format.DayOfWeekNames
 import kotlinx.datetime.format.MonthNames
@@ -119,13 +130,19 @@ import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import org.kodein.di.compose.rememberInstance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
-class HistoryPage : ComposePage {
+class HistoryPage(
+    val keyword: String = "",
+) : ComposePage {
 
     @Composable
     override fun Content() {
-        val viewModel: HistoryPageViewModel = diViewModel { HistoryPageViewModel(it) }
+        val viewModel: HistoryPageViewModel = diViewModel {
+            HistoryPageViewModel(it, keyword)
+        }
         BoxWithConstraints {
             HistoryPageContent(viewModel, maxWidth)
         }
@@ -134,6 +151,7 @@ class HistoryPage : ComposePage {
 
 private class HistoryPageViewModel(
     override val di: DI,
+    private val initKeyword: String = "",
 ) : ViewModel(), DIAware {
 
     @Stable
@@ -145,7 +163,7 @@ private class HistoryPageViewModel(
     private val pageNavigation by instance<PageNavigation>()
     private val messageDialog by instance<MessageDialogState>()
 
-    var keyword = ""
+    var keyword = initKeyword
 
     val isRefreshing = MutableStateFlow(false)
     val list = FlowPaginationInfo<HistoryItem>()
@@ -178,9 +196,9 @@ private class HistoryPageViewModel(
             .date
     }
 
-    private fun loadData(
-        maxId: Long = _maxId
-    ) = viewModelScope.launch(Dispatchers.IO) {
+    private suspend fun loadPage(
+        maxId: Long = _maxId,
+    ) {
         try {
             list.loading.value = true
             val keywordText = keyword
@@ -189,29 +207,7 @@ private class HistoryPageViewModel(
             } else {
                 searchList(keywordText, maxId + 1)
             }
-            val newListData = if (maxId == 0L) {
-                mutableListOf<HistoryItem>()
-            } else {
-                list.data.value.toMutableList()
-            }
-            var prevItem = newListData.lastOrNull()
-            itemList.forEach {
-                val localData = getDateByCursorItem(it)
-                if (prevItem?.localDate != localData) {
-                    // 添加日期分割
-                    newListData.add(
-                        HistoryItem(
-                            item = null,
-                            localDate = localData,
-                        )
-                    )
-                }
-                prevItem = HistoryItem(
-                    item = it,
-                    localDate = localData,
-                ).also(newListData::add)
-            }
-            list.data.value = newListData
+            appendItems(itemList)
         } catch (e: Exception) {
             e.printStackTrace()
             list.fail.value = e.message ?: e.toString()
@@ -219,6 +215,94 @@ private class HistoryPageViewModel(
             list.loading.value = false
             isRefreshing.value = false
         }
+    }
+
+    private fun loadData(
+        maxId: Long = _maxId,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadPage(maxId)
+        }
+    }
+
+    /**
+     * 把 [itemList] 追加到历史列表末尾：按观看时间降序排序、
+     * 按 kid 去重、为日期变化添加分割线（避免日期分割反复出现）。
+     */
+    private fun appendItems(itemList: List<CursorItem>) {
+        val newListData = list.data.value.toMutableList()
+        val seenKids = newListData.mapNotNull { it.item?.kid }.toMutableSet()
+        val sortedItems = itemList.sortedByDescending { it.viewAt }
+        var prevItem = newListData.lastOrNull()
+        sortedItems.forEach { item ->
+            if (!seenKids.add(item.kid)) {
+                return@forEach
+            }
+            val localData = getDateByCursorItem(item)
+            if (prevItem?.localDate != localData) {
+                newListData.add(
+                    HistoryItem(
+                        item = null,
+                        localDate = localData,
+                    )
+                )
+            }
+            prevItem = HistoryItem(
+                item = item,
+                localDate = localData,
+            ).also(newListData::add)
+        }
+        list.data.value = newListData
+    }
+
+    /**
+     * 持续加载历史记录直到 [targetDate] 出现在列表中（用于日历点击跳转），
+     * 返回该日期分割线在列表中的索引；加载完成仍没有则返回 -1。
+     */
+    suspend fun loadUntilDate(targetDate: LocalDate): Int {
+        var index = list.data.value.indexOfFirst { it.localDate == targetDate }
+        if (index != -1) return index
+        // 时间戳粗跳：历史记录游标按时间排序，用目标日期次日 0 点的时间戳
+        // 作为游标一次请求目标日期附近的数据，避免逐页加载中间的记录
+        val targetEndSeconds = targetDate.plus(1, DateTimeUnit.DAY)
+            .atStartOfDayIn(TimeZone.currentSystemDefault())
+            .epochSeconds
+        try {
+            val req = CursorV2Req(
+                business = "archive",
+                cursor = Cursor(
+                    max = targetEndSeconds,
+                    maxTp = _mapTp,
+                ),
+            )
+            val res = BiliGRPCHttp.request {
+                HistoryGRPC.cursorV2(req)
+            }.awaitCall()
+            val items = res.items
+            if (items.isNotEmpty()) {
+                appendItems(items)
+                res.cursor?.let {
+                    _maxId = it.max
+                    _mapTp = it.maxTp
+                }
+                list.finished.value = !res.hasMore
+                index = list.data.value.indexOfFirst { it.localDate == targetDate }
+                if (index != -1) return index
+            }
+        } catch (_: Exception) {
+            // 粗跳失败（游标类型不支持时间戳等），回退逐页加载
+        }
+        // 回退：逐页加载直到目标日期
+        while (
+            index == -1 &&
+            !list.finished.value &&
+            list.fail.value.isEmpty() &&
+            list.data.value.isNotEmpty()
+        ) {
+            loadPage(_maxId)
+            index = list.data.value.indexOfFirst { it.localDate == targetDate }
+        }
+        return index
     }
 
     private suspend fun loadList(
@@ -371,6 +455,7 @@ private fun HistoryPageContent(
     val enableEditMode = remember {
         mutableStateOf(false)
     }
+    val pageNavigation by rememberInstance<PageNavigation>()
 
     fun clearHistoryList() {
         showClearTipsDialog.value = false
@@ -447,7 +532,10 @@ private fun HistoryPageContent(
     PageListener(
         configId = pageConfigId,
         onMenuItemClick = ::menuItemClick,
-        onSearchSelfPage = viewModel::searchSelfPage
+        onSearchSelfPage = { text ->
+            // 进入"搜索历史记录"输入页（与 UP 主详情搜索逻辑一致）
+            pageNavigation.navigate(HistorySearchInputPage(initKeyword = text))
+        }
     )
     BackHandler(
         enabled = enableEditMode.value,
@@ -489,12 +577,13 @@ private fun HistoryPageContent(
     fun scrollToDate(date: LocalDate) {
         scope.launch {
             val index = withContext(Dispatchers.IO) {
-                list.indexOfFirst {
-                    it.localDate == date
-                }
+                // 若该日期尚未加载，持续加载直到出现（或没有更多数据）
+                viewModel.loadUntilDate(date)
             }
             if (index != -1) {
                 listState.scrollToItem(index)
+            } else {
+                GlobalToaster.show("没有找到该日期的记录")
             }
         }
     }
@@ -550,7 +639,8 @@ private fun HistoryPageContent(
                 }) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }
@@ -599,6 +689,7 @@ private fun CalendarRowView(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
                 text = it.key.format(formatter),
                 style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         LazyRow(
@@ -618,11 +709,8 @@ private fun CalendarRowView(
                     day.firstOrNull()?.toString() ?: day
                 }
 
-                val isEnable = date >= (endDate ?: startDate)
-                val color = if (isEnable)
-                    MaterialTheme.colorScheme.onBackground
-                else
-                    MaterialTheme.colorScheme.outlineVariant
+                // 所有日期统一使用正常文字色（不再灰显），选中日期用主题色高亮
+                val color = MaterialTheme.colorScheme.onBackground
                 Column(
                     modifier = Modifier
                         .size(40.dp),
@@ -630,15 +718,18 @@ private fun CalendarRowView(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
+                        modifier = Modifier.fillMaxWidth(),
                         text = dateHeader,
                         style = MaterialTheme.typography.labelSmall,
                         color = color,
+                        textAlign = TextAlign.Center,
                     )
                     if (date == currentDate) {
                         Box(
                             modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
                                 .background(
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     shape = CircleShape,
                                 )
                                 .size(24.dp),
@@ -647,25 +738,24 @@ private fun CalendarRowView(
                             Text(
                                 text = "${date.dayOfMonth}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSecondary,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     } else {
                         Box(
                             modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
                                 .size(24.dp)
                                 .clip(CircleShape)
-                                .run {
-                                    if (isEnable) clickable { onChangeDate(date) }
-                                    else this
-                                },
+                                .clickable { onChangeDate(date) },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                modifier = Modifier,
                                 text = "${date.dayOfMonth}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = color,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
@@ -693,28 +783,83 @@ private fun HistoryListView(
     val listFinished by listFlow.finished.collectAsState()
     val listFail by listFlow.fail.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
-
+    // 计算每个条目在所属日期分段中的位置（组内序号、组内数量），用于连体圆角
+    val groupInfo = remember(list) {
+        val position = IntArray(list.size)
+        val size = IntArray(list.size)
+        var groupItems = mutableListOf<Int>()
+        list.forEachIndexed { index, historyItem ->
+            if (historyItem.item == null) {
+                groupItems.forEach { size[it] = groupItems.size }
+                groupItems = mutableListOf()
+            } else {
+                position[index] = groupItems.size
+                groupItems.add(index)
+            }
+        }
+        groupItems.forEach { size[it] = groupItems.size }
+        position to size
+    }
     SwipeToRefresh(
         modifier = modifier,
         refreshing = isRefreshing,
         onRefresh = viewModel::refreshList,
     ) {
+        val colCount = rememberGridColumnCount(300.dp)
+        // 按日期分组独立计算每张卡片的圆角：
+        // 每组（一个日期的卡片）内部按自己的行列取大圆角，
+        // 组首行首列/首行末列/末行首列/末行末列分别大圆角，其余相邻边小圆角
+        val cardShapeMap = remember(list, colCount) {
+            val map = HashMap<Int, Shape>()
+            val groupCards = mutableListOf<Int>()
+            fun finishGroup() {
+                if (groupCards.isNotEmpty()) {
+                    groupCards.forEachIndexed { seqInGroup, index ->
+                        map[index] = gridSegmentedShape(
+                            seqInGroup,
+                            groupCards.size,
+                            colCount,
+                        )
+                    }
+                }
+                groupCards.clear()
+            }
+            list.forEachIndexed { index, historyItem ->
+                if (historyItem.item == null) {
+                    finishGroup()
+                } else {
+                    groupCards.add(index)
+                }
+            }
+            finishGroup()
+            map
+        }
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            columns = GridCells.Adaptive(300.dp),
+            columns = GridCells.Fixed(colCount),
             contentPadding = PaddingValues(
                 start = if (sideTimeline) {
                     50.dp
                 } else {
-                    0.dp
-                }
-            )
+                    12.dp
+                },
+                end = 12.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
             items(
                 list.size,
-                span = {
-                    if (list[it].item == null) {
+                key = { index ->
+                    // 稳定 key：日期分割线用日期，卡片用 kid（提升列表滚动/复用性能）
+                    val historyItem = list[index]
+                    historyItem.item?.kid?.toString()
+                        ?: "date-${historyItem.localDate}"
+                },
+                span = { index ->
+                    // 日期分割线占满整行，卡片占一列
+                    if (list[index].item == null) {
                         GridItemSpan(maxLineSpan)
                     } else {
                         GridItemSpan(1)
@@ -738,11 +883,7 @@ private fun HistoryListView(
                                 .run {
                                     if (enableEdit) alpha(0.6f)
                                     else this
-                                }
-                                .padding(
-                                    horizontal = 10.dp,
-                                    vertical = 5.dp
-                                ),
+                                },
                             title = item.title,
                             pic = item.cardOgv?.cover
                                 ?: item.cardUgc?.cover,
@@ -757,6 +898,11 @@ private fun HistoryListView(
                             },
                             progress = progressRatio,
                             isHtml = true,
+                            isChargeVideo = item.cardUgc?.let {
+                                it.badge.contains("充电")
+                                    || it.badgeV2?.text?.contains("充电") == true
+                            } == true,
+                            segmentedShape = cardShapeMap[index],
                             onClick = {
                                 if (!enableEdit) {
                                     viewModel.toVideoDetail(item)
@@ -816,7 +962,7 @@ private fun HistoryListView(
                         .width(50.dp)
                         .padding(top = 10.dp, end = 5.dp)
                         .background(MaterialTheme.colorScheme.background),
-                    horizontalAlignment = Alignment.End,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     val formatter = LocalDate.Format {
@@ -825,24 +971,24 @@ private fun HistoryListView(
                     Box(
                         modifier = Modifier
                             .background(
-                                color = MaterialTheme.colorScheme.outline,
+                                color = MaterialTheme.colorScheme.primary,
                                 shape = CircleShape,
                             )
                             .size(24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            modifier = Modifier.padding(bottom = 2.dp),
                             textAlign = TextAlign.Center,
                             text = "${it.key.dayOfMonth}",
-                            color = MaterialTheme.colorScheme.surface
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
                     Text(
                         modifier = Modifier.padding(top = 5.dp),
                         text = it.key.format(formatter),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             } else {

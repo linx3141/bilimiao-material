@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user
 
 import cn.a10miaomiao.bilimiao.compose.common.BackHandler
@@ -5,8 +7,10 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,15 +20,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +61,8 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.layout.AutoTwoPaneLayout
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
@@ -327,63 +336,75 @@ private fun UserMedialistListContent(
             refreshing = isRefreshing,
             onRefresh = { viewModel.refreshList() },
         ) {
-            LazyColumn {
+            LazyColumn(
+                contentPadding = PaddingValues(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
                 val selectedMedia = viewModel.openedMedia
-                items(list.size, { list[it].param }) {
-                    val item = list[it]
+                itemsIndexed(
+                    list,
+                    key = { _, item -> item.param },
+                ) { index, item ->
                     val isSelected = if (showTowPane) {
-                        if (selectedMedia == null) it == 0
+                        if (selectedMedia == null) index == 0
                         else selectedMedia.id == item.param && selectedMedia.type == item.type
                     } else { false }
-                    MiaoCard(
-                        modifier = Modifier.padding(5.dp),
-                        onClick = {
-                            viewModel.openMediaDetail(item)
-                        },
-                        enabled = !isSelected,
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            list.size,
+                        ),
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .clickable(
-                                    onClick = {
-                                        viewModel.openMediaDetail(item)
-                                    },
-                                    enabled = !isSelected,
-                                )
-                                .padding(10.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                        MiaoCard(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            onClick = {
+                                viewModel.openMediaDetail(item)
+                            },
+                            enabled = !isSelected,
                         ) {
-                            AsyncImage(
-                                model = UrlUtil.autoHttps(item.cover) + "@672w_378h_1c_",
-                                contentScale = ContentScale.Crop,
-                                contentDescription = null,
+                            Row(
                                 modifier = Modifier
-                                    .size(width = 120.dp, height = 80.dp)
-                                    .clip(RoundedCornerShape(5.dp)),
-                                placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
-                                error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
-                            )
-
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(80.dp)
-                                    .padding(horizontal = 10.dp),
+                                    .clickable(
+                                        onClick = {
+                                            viewModel.openMediaDetail(item)
+                                        },
+                                        enabled = !isSelected,
+                                    )
+                                    .padding(10.dp)
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = item.title,
-                                    maxLines = 2,
-                                    modifier = Modifier.weight(1f),
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground,
+                                AsyncImage(
+                                    model = UrlUtil.autoHttps(item.cover) + "@672w_378h_1c_",
+                                    contentScale = ContentScale.Crop,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(width = 120.dp, height = 80.dp)
+                                        .clip(RoundedCornerShape(5.dp)),
+                                    placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
+                                    error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
                                 )
-                                Text(
-                                    text = "${item.count}个视频",
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(80.dp)
+                                        .padding(horizontal = 10.dp),
+                                ) {
+                                    Text(
+                                        text = item.title,
+                                        maxLines = 2,
+                                        modifier = Modifier.weight(1f),
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                    )
+                                    Text(
+                                        text = "${item.count}个视频",
+                                        maxLines = 1,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
                     }

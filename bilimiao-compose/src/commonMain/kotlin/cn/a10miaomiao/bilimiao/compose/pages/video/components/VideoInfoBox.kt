@@ -2,6 +2,8 @@ package cn.a10miaomiao.bilimiao.compose.pages.video.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -19,12 +23,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -37,7 +43,9 @@ import cn.a10miaomiao.bilimiao.compose.assets.BilimiaoIcons
 import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.Common
 import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.common.Danmukunum
 import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.common.Playnum
+import cn.a10miaomiao.bilimiao.compose.components.video.TitleWithChargeBadge
 import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDetailViewModel
+import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 
 @Composable
@@ -102,26 +110,31 @@ fun VideoInfoBox(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     var hasOverflow by remember { mutableStateOf(false) }
+    val isChargeVideo by viewModel.isChargeVideo.collectAsState()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
     ){
         SelectionContainer {
-            Text(
+            TitleWithChargeBadge(
+                title = AnnotatedString(arc.title),
+                isChargeVideo = isChargeVideo,
                 modifier = Modifier
-                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = 12.dp)
                     .animateContentSize(),
-                text = arc.title,
-                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium,
             )
         }
         Row(
-            modifier = Modifier.padding(
-                vertical = 5.dp,
-                horizontal = 10.dp,
-            ),
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(
+                    vertical = 5.dp,
+                    horizontal = 12.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 modifier = Modifier.size(16.dp),
@@ -163,7 +176,7 @@ fun VideoInfoBox(
             )
             HorizontalDivider(
                 modifier = Modifier.padding(
-                    horizontal = 10.dp,
+                    horizontal = 12.dp,
                     vertical = 5.dp,
                 ),
                 thickness = 0.5.dp,
@@ -174,7 +187,7 @@ fun VideoInfoBox(
             SelectionContainer {
                 Text(
                     modifier = Modifier
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 12.dp)
                         .animateContentSize(),
                     text = parseText(arc.desc),
                     style = MaterialTheme.typography.bodyMedium,

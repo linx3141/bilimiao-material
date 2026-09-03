@@ -14,6 +14,7 @@ import com.a10miaomiao.bilimiao.comm.entity.user.SpaceInfo
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
 import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
+import com.a10miaomiao.bilimiao.comm.utils.miaoLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +76,12 @@ class UserArchiveViewModel(
                 .json<ResponseData<ArchiveCursorInfo>>()
             if (res.code == 0) {
                 val items: List<ArchiveInfo> = res.requireData().item ?: emptyList()
+                // 诊断：输出投稿列表解码出的充电相关字段，便于确认标识判定
+                items.firstOrNull()?.let {
+                    miaoLogger() debug "充电标识-投稿: ${it.title} " +
+                        "ugc_pay=${it.ugc_pay} is_ugcpay=${it.is_ugcpay} " +
+                        "badges=${it.badges?.map { b -> b.text }}"
+                }
                 if (aid.isBlank()) {
                     list.data.value = items.toMutableList()
                 } else {

@@ -37,7 +37,7 @@ fun <T> DataDrivenNavigator(
             val scope = remember {
                 DataDrivenNavigatorScope(
                     sharedTransitionScope = this@SharedTransitionLayout,
-                    animatedVisibilityScope = this@AnimatedContent
+                    animatedVisibilityScope = this@AnimatedContent,
                 )
             }
             if (targetState == null) {

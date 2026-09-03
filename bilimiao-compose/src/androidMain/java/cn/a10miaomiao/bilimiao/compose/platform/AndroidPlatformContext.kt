@@ -4,9 +4,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.app.Activity
+import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import cn.a10miaomiao.bilimiao.cover.CoverActivity
+import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 class AndroidPlatformContext(
     private val context: Context,
@@ -38,5 +42,25 @@ class AndroidPlatformContext(
 
     override fun openCoverImage(aid: String) {
         CoverActivity.launch(context, aid)
+    }
+
+    override fun applyPredictiveBack(enable: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return
+        }
+        // 与 KernelSU 一致：豁免后反射设置 onBackInvokedCallback 开关，并重建页面使即时生效。
+        // 调用方需保证 DataStore 已写入完成（AppStore.setPredictiveBack 的 onApplied 回调）
+        runCatching {
+            HiddenApiBypass.addHiddenApiExemptions(
+                "Landroid/content/pm/ApplicationInfo;->setEnableOnBackInvokedCallback"
+            )
+            val method = ApplicationInfo::class.java.getDeclaredMethod(
+                "setEnableOnBackInvokedCallback",
+                Boolean::class.javaPrimitiveType,
+            )
+            method.isAccessible = true
+            method.invoke(context.applicationInfo, enable)
+        }
+        (context as? Activity)?.recreate()
     }
 }

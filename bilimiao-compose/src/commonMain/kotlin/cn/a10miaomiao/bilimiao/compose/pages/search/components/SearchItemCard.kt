@@ -18,10 +18,7 @@ internal fun SearchItemCard(
         is CardItem.Av -> {
             val avItem = cardItem.value
             VideoItemBox(
-                modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = 5.dp
-                ),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 title = avItem.title,
                 pic = avItem.cover,
                 upperName = avItem.author + " " + avItem.showCardDesc2,
@@ -29,16 +26,15 @@ internal fun SearchItemCard(
                 damukuNum = NumberUtil.converString(avItem.danmaku),
                 duration = avItem.duration,
                 isHtml = true,
+                isChargeVideo = avItem.badges.any { it.text == "充电专属" }
+                    || avItem.badgesV2.any { it.text == "充电专属" },
                 onClick = onClick
             )
         }
         is CardItem.Bangumi -> {
             val bangumiItem = cardItem.value
             BangumiItemBox(
-                modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = 5.dp
-                ),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 title = bangumiItem.title,
                 cover = bangumiItem.cover,
                 statusText = bangumiItem.styles,
@@ -50,10 +46,7 @@ internal fun SearchItemCard(
         is CardItem.Author -> {
             val authorItem = cardItem.value
             AuthorItemBox(
-                modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = 5.dp
-                ),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 name = authorItem.title,
                 face = authorItem.cover,
                 sign = authorItem.sign,

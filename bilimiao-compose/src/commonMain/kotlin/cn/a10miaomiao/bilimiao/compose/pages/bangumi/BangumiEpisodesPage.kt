@@ -21,17 +21,21 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -46,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toColorInt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -214,6 +220,7 @@ private class BangumiEpisodesPageViewModel(
 
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ComplexEpisodeItem(
     modifier: Modifier = Modifier,
@@ -221,11 +228,22 @@ private fun ComplexEpisodeItem(
     currentPlayEpid: String,
     onClick: (() -> Unit),
 ) {
-    Box(modifier) {
+    val segmentedShapes = LocalListItemShapes.current
+    Box(
+        modifier = if (segmentedShapes == null) {
+            modifier.padding(5.dp)
+        } else {
+            modifier
+        },
+    ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (segmentedShapes != null) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
             border = if (currentPlayEpid == episode.id) BorderStroke(
                 1.dp, color = MaterialTheme.colorScheme.primary
             ) else null
@@ -278,6 +296,7 @@ private fun ComplexEpisodeItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SimpleEpisodeItem(
     modifier: Modifier = Modifier,
@@ -285,12 +304,23 @@ private fun SimpleEpisodeItem(
     currentPlayEpid: String,
     onClick: (() -> Unit),
 ) {
-    Box(modifier) {
+    val segmentedShapes = LocalListItemShapes.current
+    Box(
+        modifier = if (segmentedShapes == null) {
+            modifier.padding(5.dp)
+        } else {
+            modifier
+        },
+    ) {
         Surface(
             modifier = Modifier.fillMaxWidth()
                 .height(60.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (segmentedShapes != null) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
             border = if (currentPlayEpid == episode.id) BorderStroke(
                 1.dp, color = MaterialTheme.colorScheme.primary
             ) else null
@@ -339,7 +369,7 @@ private fun SimpleEpisodeItem(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BangumiEpisodesPageContent(
     viewModel: BangumiEpisodesPageViewModel
@@ -397,6 +427,8 @@ private fun BangumiEpisodesPageContent(
                 GridCells.Adaptive(400.dp)
             else
                 GridCells.Adaptive(80.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
             if (sectionList.size > 1) {
                 item(
@@ -425,24 +457,33 @@ private fun BangumiEpisodesPageContent(
                 }
             }
             if (currentSection.hasLongTitle) {
-                items(currentSection.episodes) {
-                    ComplexEpisodeItem (
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding( 5.dp),
-                        episode = it,
-                        currentPlayEpid = currentPlay.epid,
-                        onClick = {
-                            viewModel.startPlayBangumi(it)
-                        }
-                    )
+                itemsIndexed(
+                    currentSection.episodes,
+                    span = { _, _ -> GridItemSpan(maxLineSpan) },
+                ) { index, item ->
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            currentSection.episodes.size,
+                        ),
+                    ) {
+                        ComplexEpisodeItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            episode = item,
+                            currentPlayEpid = currentPlay.epid,
+                            onClick = {
+                                viewModel.startPlayBangumi(item)
+                            },
+                        )
+                    }
                 }
             } else {
                 items(currentSection.episodes) {
                     SimpleEpisodeItem(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding( 5.dp),
+                            .fillMaxSize(),
                         episode = it,
                         currentPlayEpid = currentPlay.epid,
                         onClick = {

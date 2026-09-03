@@ -19,6 +19,7 @@
         android:name=".Bilimiao"
         android:allowBackup="true"
         android:allowNativeHeapPointerTagging="false"
+        android:enableOnBackInvokedCallback="@bool/appOnBackInvokedCallbackEnabled"
         android:icon="@mipmap/ic_bilimiao_33"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_bilimiao_33_round"

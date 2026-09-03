@@ -232,7 +232,12 @@ fun ReplyEditDialog(
                         .fillMaxWidth()
                 ) {
                     ReplyTextField(
-                        state = state,
+                        visible = state.visible,
+                        focusRequester = state.focusRequester,
+                        value = state.input,
+                        textEmpty = state.textEmpty,
+                        onValueChange = state::inputChange,
+                        onDone = state::freeFocus,
                     )
                     SnackbarHost(hostState = state.snackbar)
                     ReplyTextToolbar(
@@ -290,41 +295,48 @@ private val minInputHeight = 90.dp
 private val emotePanelHeight = 300.dp
 
 @Composable
-private fun ReplyTextField(
+internal fun ReplyTextField(
     modifier: Modifier = Modifier,
-    state: ReplyEditDialogState,
+    visible: Boolean,
+    focusRequester: FocusRequester,
+    value: TextFieldValue,
+    textEmpty: Boolean,
+    placeholder: String = "请发表你的评论",
+    onValueChange: (TextFieldValue) -> Unit,
+    onDone: () -> Unit,
 ) {
-    LaunchedEffect(state.visible) {
-        if (state.visible) {
-            state.requestFocus()
+    LaunchedEffect(visible) {
+        if (visible) {
+            focusRequester.requestFocus()
         }
     }
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceBright,
     ) {
         BasicTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = minInputHeight)
                 .padding(8.dp)
-                .focusRequester(state.focusRequester),
+                .focusRequester(focusRequester),
             textStyle = TextStyle(
-                fontSize = 18.sp
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface,
             ),
-            value = state.input,
-            onValueChange = state::inputChange,
+            value = value,
+            onValueChange = onValueChange,
             cursorBrush = SolidColor(Color(0xff00897B)),
             decorationBox = { innerTextField ->
-                if (state.textEmpty) {
-                    Text("请发表你的评论", fontSize = 18.sp)
+                if (textEmpty) {
+                    Text(placeholder, fontSize = 18.sp)
                 }
                 innerTextField()
             },
             keyboardActions = KeyboardActions(
                 onDone = {
-                    state.freeFocus()
+                    onDone()
                 }
             ),
         )
@@ -333,10 +345,11 @@ private fun ReplyTextField(
 
 
 @Composable
-private fun ReplyTextToolbar(
+internal fun ReplyTextToolbar(
     modifier: Modifier = Modifier,
     visibleEmoji: Boolean,
     loading: Boolean,
+    sendText: String = "发布",
     onEmojiClick: () -> Unit,
     onSendClick: () -> Unit,
 ) {
@@ -385,7 +398,7 @@ private fun ReplyTextToolbar(
                     )
                 } else {
                     Text(
-                        "发布",
+                        sendText,
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     Icon(
@@ -397,4 +410,3 @@ private fun ReplyTextToolbar(
         }
     }
 }
-

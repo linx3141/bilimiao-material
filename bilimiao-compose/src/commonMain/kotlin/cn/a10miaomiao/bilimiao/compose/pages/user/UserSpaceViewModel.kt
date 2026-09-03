@@ -1,6 +1,8 @@
 package cn.a10miaomiao.bilimiao.compose.pages.user
 
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +11,6 @@ import cn.a10miaomiao.bilimiao.compose.components.dialogs.MessageDialogState
 import cn.a10miaomiao.bilimiao.compose.pages.bangumi.BangumiDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.MyBangumiPage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.MyFollowPage
-import cn.a10miaomiao.bilimiao.compose.pages.web.WebPage
 import com.a10miaomiao.bilimiao.comm.apis.UserApi
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.entity.ResponseData
@@ -111,21 +112,113 @@ class UserSpaceViewModel(
         }
     }
 
+    /**
+     * 取消屏蔽该UP主：移除本地屏蔽，并同步把用户移出 B 站黑名单（需登录）。
+     * 与 PiliPlus 一致：先确认再执行。
+     */
     fun filterUpperDelete () {
-        filterStore.deleteUpper(vmid.toLong())
-        _isFiltered.value = false
+        val info = detailData.value
+        if (info == null) {
+            GlobalToaster.show("请等待信息加载完成")
+            return
+        }
+        messageDialog.open(
+            title = "取消屏蔽该UP主",
+            text = "确定将「${info.card.name}」移出黑名单？\n" +
+                "移出后本地不再过滤其内容，对方可重新与你互动。",
+            closeText = "取消",
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        messageDialog.close()
+                        doFilterUpperDelete()
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+        )
     }
 
+    private fun doFilterUpperDelete() {
+        filterStore.deleteUpper(vmid.toLong(), showToast = false)
+        _isFiltered.value = false
+        if (!userStore.isLogin()) {
+            GlobalToaster.show("已取消屏蔽")
+            return
+        }
+        // 同步移出 B 站黑名单
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val res = BiliApiService.userRelationApi
+                    .unblock(vmid)
+                    .awaitCall().json<MessageInfo>()
+                if (res.code == 0) {
+                    GlobalToaster.show("已取消屏蔽（已移出黑名单）")
+                } else {
+                    GlobalToaster.show("已取消本地屏蔽，移出黑名单失败：${res.message}")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                GlobalToaster.show("已取消本地屏蔽，移出黑名单失败")
+            }
+        }
+    }
+
+    /**
+     * 屏蔽该UP主：加入本地屏蔽列表，并同步拉黑用户（需登录，自动解除关注关系）。
+     */
     fun filterUpperAdd () {
         val info = detailData.value
         if (info == null) {
             GlobalToaster.show("请等待信息加载完成")
-        } else {
-            filterStore.addUpper(
-                info.card.mid.toLong(),
-                info.card.name,
-            )
+            return
+        }
+        // 未登录时无法拉黑，直接本地屏蔽即可
+        if (!userStore.isLogin()) {
+            filterStore.addUpper(info.card.mid.toLong(), info.card.name, showToast = false)
             _isFiltered.value = true
+            GlobalToaster.show("未登录，仅本地屏蔽")
+            return
+        }
+        messageDialog.open(
+            title = "屏蔽该UP主",
+            text = "确定将「${info.card.name}」加入黑名单？\n" +
+                "加入黑名单后将自动解除关注关系，禁止其与你互动或查看你的空间，并在本地屏蔽其内容。",
+            closeText = "取消",
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        messageDialog.close()
+                        doFilterUpperAdd(info)
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+        )
+    }
+
+    private fun doFilterUpperAdd(info: SpaceInfo) {
+        filterStore.addUpper(info.card.mid.toLong(), info.card.name, showToast = false)
+        _isFiltered.value = true
+        // 云端拉黑：加入 B 站黑名单
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val res = BiliApiService.userRelationApi
+                    .block(info.card.mid)
+                    .awaitCall().json<MessageInfo>()
+                if (res.code == 0) {
+                    // 拉黑后 B 站会自动解除关注关系
+                    _isFollow.value = false
+                    GlobalToaster.show("已屏蔽该UP主（已加入黑名单）")
+                } else {
+                    GlobalToaster.show("已本地屏蔽，拉黑失败：${res.message}")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                GlobalToaster.show("已本地屏蔽，拉黑失败")
+            }
         }
     }
 
@@ -157,7 +250,7 @@ class UserSpaceViewModel(
     }
 
     fun toFans() {
-        pageNavigation.navigate(WebPage(url = "https://space.bilibili.com/h5/follow?type=fans&mid=$vmid"))
+        pageNavigation.navigate(UserFansPage(vmid))
     }
 
     fun toFollow() {

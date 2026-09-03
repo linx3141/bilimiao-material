@@ -12,4 +12,11 @@ interface ComposePage : NavKey {
     @Composable
     fun Content()
 
+    /**
+     * 以底部弹窗方式打开时，是否显示标题栏（左上角关闭按钮 + 标题）。
+     * 例如发送弹幕页需要与发送评论弹窗保持一致的布局，不显示标题栏。
+     */
+    val showBottomSheetTitleBar: Boolean
+        get() = true
+
 }

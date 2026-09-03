@@ -3,12 +3,15 @@ package cn.a10miaomiao.bilimiao.compose.pages.message.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,10 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MessageItemBox(
     avatar: String,
@@ -35,12 +40,10 @@ internal fun MessageItemBox(
     onUserClick: () -> Unit,
     onDetailClick: () -> Unit,
     onMessageClick: (() -> Unit),
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp),
-    ) {
+    // 内容行：头像 + 昵称动作 + 来源内容 + 标题
+    val rowContent: @Composable RowScope.() -> Unit = {
         AsyncImage(
             model = UrlUtil.autoHttps(avatar) + "@200w_200h",
             contentDescription = null,
@@ -100,6 +103,29 @@ internal fun MessageItemBox(
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    val segmentedShapes = LocalListItemShapes.current
+    if (segmentedShapes != null) {
+        // 分段（Segmented）列表：与设置页一致，相邻项小圆角、首尾大圆角、连体背景
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = segmentedShapes.shape,
+            color = MaterialTheme.colorScheme.surfaceBright,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                content = rowContent,
+            )
+        }
+    } else {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            content = rowContent,
         )
     }
 }

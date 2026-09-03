@@ -52,7 +52,8 @@ android {
             manifestPlaceholders["channel"] = "Development"
         }
         release {
-            isMinifyEnabled = false
+            // 发布构建：启用 R8 压缩/混淆/优化
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -85,14 +86,21 @@ android {
         // Flag to enable support for the new language APIs
         isCoreLibraryDesugaringEnabled = true
 
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     buildFeatures {
         compose = true
         buildConfig = true
         resValues = true
+    }
+
+    // 16 KB 页大小兼容：共享库使用未压缩存储（AGP 8.5.1+ 官方建议）
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     lint {
@@ -110,7 +118,37 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
+// 16 KB 页大小对齐：部分依赖库（datastore/gif/gav1/graphics-path）的
+// ELF 段未按 16 KB 对齐（LOAD/RELRO 的 vaddr 与 p_align），Android 15+
+// 会报对齐检查失败。在原生库合并后统一把 .so 的段重排到 16 KB 对齐
+//（同步更新 section 表、动态段指针与重定位表，保证可正常加载）。
+tasks.whenTaskAdded {
+    if (name.startsWith("merge") && name.endsWith("NativeLibs")) {
+        // 每次构建都重新合并并对齐（避免 UP-TO-DATE 跳过对齐处理）
+        outputs.upToDateWhen { false }
+        doLast {
+            outputs.files.forEach { out ->
+                val libRoot = out.resolve("lib")
+                if (libRoot.exists()) {
+                    libRoot.walkTopDown()
+                        .filter { it.isFile && it.extension == "so" }
+                        .forEach { so ->
+                            ProcessBuilder(
+                                "python3",
+                                rootProject.file("scripts/realign_elf.py").absolutePath,
+                                so.absolutePath,
+                            )
+                                .inheritIO()
+                                .start()
+                                .waitFor()
+                        }
+                }
+            }
+        }
     }
 }
 
@@ -140,6 +178,7 @@ dependencies {
     implementation(libs.kodein.di)
 
     implementation(libs.materialkolor)
+    implementation(libs.hiddenapibypass)
 
     implementation(libs.mojito)
     implementation(libs.mojito.sketch)
@@ -157,6 +196,8 @@ dependencies {
     implementation(libs.mediamp.exoplayer)
 
     implementation(libs.okhttp3)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.pbandk.runtime)
     implementation(libs.glide)
     annotationProcessor(libs.glide.compiler)

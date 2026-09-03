@@ -68,8 +68,10 @@ actual fun WebViewContainer(
                 val webView = WebView(context).also { wv ->
                     webViewState.webView = wv
                     configureWebView(wv, config, callbacks, webViewState)
-                    wv.loadUrl(url)
+                    // JS 桥需要在页面加载前注册（与旧版 WebPage 一致），
+                    // 否则 H5 页面首屏可能因拿不到 _BiliJsBridge 而回退为降级样式
                     onHandleReady(webViewState)
+                    wv.loadUrl(url)
                 }
                 addView(webView)
             }

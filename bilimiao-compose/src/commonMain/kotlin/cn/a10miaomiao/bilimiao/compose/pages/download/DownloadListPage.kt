@@ -1,13 +1,20 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.download
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -24,7 +31,11 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.pages.download.components.DownloadListItem
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import com.a10miaomiao.bilimiao.comm.mypage.myMenu
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +44,7 @@ import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class DownloadListPage : ComposePage {
@@ -265,20 +277,25 @@ internal fun DownloadListPageContent(
                 ) {
                     Text("取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 
 
-    LazyColumn(
+    val colCount = rememberGridColumnCount(300.dp)
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(colCount),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = windowInsets.leftDp.dp, end = windowInsets.rightDp.dp)
+            .padding(start = windowInsets.leftDp.dp, end = windowInsets.rightDp.dp),
+        horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Spacer(modifier = Modifier.height(windowInsets.topDp.dp))
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Row(
                 modifier = Modifier.padding(horizontal = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -312,18 +329,21 @@ internal fun DownloadListPageContent(
                 )
             }
         }
-        items(
+        itemsIndexed(
             list,
-        ) {
+            key = { _, item -> "${item.type}-${item.id}" },
+        ) { index, item ->
             DownloadListItem(
+                modifier = Modifier,
                 curDownload = curDownload,
-                item = it,
+                item = item,
+                segmentedShape = gridSegmentedShape(index, list.size, colCount),
                 onClick = {
-                    viewModel.toDetailPage(it)
+                    viewModel.toDetailPage(item)
                 }
             )
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Spacer(modifier = Modifier.height(windowInsets.bottom))
         }
     }

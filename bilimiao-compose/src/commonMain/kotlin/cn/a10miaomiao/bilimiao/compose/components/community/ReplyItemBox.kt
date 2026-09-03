@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
@@ -15,6 +16,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -41,6 +46,7 @@ import cn.a10miaomiao.bilimiao.compose.common.foundation.annotatedText
 import cn.a10miaomiao.bilimiao.compose.common.foundation.AnnotatedTextNode
 import cn.a10miaomiao.bilimiao.compose.common.foundation.ScaleIndication
 import cn.a10miaomiao.bilimiao.compose.common.foundation.inlineAnnotatedContent
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.image.ImagesGrid
 import cn.a10miaomiao.bilimiao.compose.components.image.provider.PreviewImageModel
 import com.a10miaomiao.bilimiao.comm.utils.MiaoLogger
@@ -161,6 +167,7 @@ class ReplyItemBoxContentInfo(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReplyItemBox(
     modifier: Modifier = Modifier,
@@ -233,6 +240,7 @@ fun ReplyItemBox(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReplyItemBox(
     modifier: Modifier = Modifier,
@@ -258,12 +266,11 @@ fun ReplyItemBox(
     onDeleteClick: () -> Unit = {},
     onClick: () -> Unit = {},
 ) {
-    Row(
-        Modifier
-            .clickable(onClick = onClick)
-            .padding(10.dp)
-            .then(modifier)
-    ) {
+    // 内容：头像 + 昵称/正文/图片/操作
+    val content: @Composable () -> Unit = {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
         AsyncImage(
             model = UrlUtil.autoHttps(avatar) + "@200w_200h",
             placeholder = painterResource(Res.drawable.bili_akari_img),
@@ -373,7 +380,7 @@ fun ReplyItemBox(
                     var likeNum = like
                     if (isLike) {
                         Icon(
-                            BilimiaoIcons.Common.Likefill,
+                            Icons.Filled.ThumbUp,
                             contentDescription = "like",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(end = 4.dp)
@@ -382,7 +389,7 @@ fun ReplyItemBox(
                         likeNum = max(1L, likeNum)
                     } else {
                         Icon(
-                            BilimiaoIcons.Common.Like,
+                            Icons.Outlined.ThumbUp,
                             contentDescription = "like",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(end = 4.dp)
@@ -405,7 +412,7 @@ fun ReplyItemBox(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        BilimiaoIcons.Common.Reply,
+                        Icons.Filled.Comment,
                         contentDescription = "reply",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(end = 4.dp)
@@ -436,5 +443,29 @@ fun ReplyItemBox(
                 }
             }
         }
+    }
+    }
+    val segmentedShapes = LocalListItemShapes.current
+    if (segmentedShapes != null) {
+        // 分段（Segmented）列表：与设置页一致，相邻项小圆角、首尾大圆角、连体背景
+        Surface(
+            modifier = modifier
+                .fillMaxWidth(),
+            shape = segmentedShapes.shape,
+            color = MaterialTheme.colorScheme.surfaceBright,
+            onClick = onClick,
+            content = content,
+        )
+    } else {
+        // 独立卡片
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            onClick = onClick,
+            content = content,
+        )
     }
 }

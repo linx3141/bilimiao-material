@@ -1,5 +1,8 @@
 package cn.a10miaomiao.bilimiao.compose.pages.community
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ReplyEditParams(
     val type: Int,
     val oid: String,

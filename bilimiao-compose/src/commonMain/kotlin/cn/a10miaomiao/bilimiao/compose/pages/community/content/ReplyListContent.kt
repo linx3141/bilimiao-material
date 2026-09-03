@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.community.content
 
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -8,28 +10,45 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.community.ReplyItemBox
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.pages.community.MainReplyViewModel
-import cn.a10miaomiao.bilimiao.compose.pages.community.components.ReplyEditDialog
+import cn.a10miaomiao.bilimiao.compose.pages.community.components.ReplyEditPopup
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
 import com.a10miaomiao.bilimiao.comm.mypage.myMenu
 import com.a10miaomiao.bilimiao.comm.store.UserStore
@@ -105,45 +124,58 @@ fun ReplyListContent(
                 )
                 .fillMaxSize(),
             contentPadding = innerPadding,
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
             headerContent()
+            item {
+                // 顶栏与第一条评论之间留出分段间距
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
-            items(
-                list.size,
-                { list[it].id }
-            ) {
-                val replyItem = list[it]
+            itemsIndexed(
+                list,
+                key = { _, item -> item.id },
+            ) { index, replyItem ->
                 val replyMid = replyItem.mid
-                ReplyItemBox(
-                    modifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
-                        with(sharedTransitionScope) {
-                            Modifier.sharedElement(
-                                rememberSharedContentState("reply-${replyItem.id}"),
-                                animatedVisibilityScope,
-                            )
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
+                    ReplyItemBox(
+                        modifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                            with(sharedTransitionScope) {
+                                Modifier.sharedElement(
+                                    rememberSharedContentState("reply-${replyItem.id}"),
+                                    animatedVisibilityScope,
+                                )
+                            }
+                        } else {
+                            Modifier
                         }
-                    } else {
-                        Modifier
-                    }.fillMaxWidth(),
-                    item = replyItem,
-                    isUpper = replyMid == upMid,
-                    showDelete = userState.isSelf(replyMid),
-                    onLikeClick = {
-                        viewModel.likeReplyAt(it)
-                    },
-                    onAvatarClick = {
-                        viewModel.toUserPage(replyItem.mid.toString())
-                    },
-                    onDeleteClick = {
-                        viewModel.deleteReply(replyItem)
-                    },
-                    onReplyClick = {
-                        viewModel.setCurrentReply(replyItem)
-                    },
-                    onClick = {
-                        viewModel.setCurrentReply(replyItem)
-                    }
-                )
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        item = replyItem,
+                        isUpper = replyMid == upMid,
+                        showDelete = userState.isSelf(replyMid),
+                        onLikeClick = {
+                            viewModel.likeReplyAt(index)
+                        },
+                        onAvatarClick = {
+                            viewModel.toUserPage(replyItem.mid.toString())
+                        },
+                        onDeleteClick = {
+                            viewModel.deleteReply(replyItem)
+                        },
+                        onReplyClick = {
+                            viewModel.setCurrentReply(replyItem)
+                        },
+                        onClick = {
+                            viewModel.setCurrentReply(replyItem)
+                        }
+                    )
+                }
             }
             item() {
                 ListStateBox(
@@ -158,7 +190,10 @@ fun ReplyListContent(
         }
     }
 
-    ReplyEditDialog(
-        state = viewModel.editDialogState,
-    )
+    viewModel.replyEditParams?.let { params ->
+        ReplyEditPopup(
+            params = params,
+            onDismiss = viewModel::closeReplyDialog,
+        )
+    }
 }

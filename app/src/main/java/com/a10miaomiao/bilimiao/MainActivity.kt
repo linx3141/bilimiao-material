@@ -225,18 +225,15 @@ class MainActivity : ComponentActivity(), DIAware {
                 .flowOn(Dispatchers.Main)
                 .collect {
                     val themeColor = it.color
-                    val bgColor = if (it.appBarType == 0) {
-                        val hct = Hct.fromInt(themeColor)
-                        val isDark = when (it.darkMode) {
-                            0 -> themeDelegate.isSystemInDark()
-                            1 -> false
-                            else -> true
-                        }
-                        val tone = if (isDark) 20.0 else 90.0
-                        Hct.from(hct.hue, 10.0, tone).toInt()
-                    } else {
-                        config.blockBackgroundColor
+                    val hct = Hct.fromInt(themeColor)
+                    val isDark = when (it.darkMode) {
+                        0 -> themeDelegate.isSystemInDark()
+                        1 -> false
+                        else -> true
                     }
+                    val tone = if (isDark) 20.0 else 90.0
+                    // 顶栏背景统一由主题色 HCT 生成（本地主题改造后无独立 appBarType 配置）
+                    val bgColor = Hct.from(hct.hue, 10.0, tone).toInt()
                     themeDelegate.setThemeColor(themeColor)
                     appBarBackgroundColor = ComposeColor(
                         (bgColor and 0x00FFFFFF) or (0xF8000000).toInt()
@@ -290,6 +287,17 @@ class MainActivity : ComponentActivity(), DIAware {
                     )
                 },
                 onBackClick = ::handleActivityBackPressed,
+                onPlayerBackPressed = {
+                    // 全屏播放时返回：先退出全屏，回到小窗/页面；小窗时返回：关闭播放器
+                    if (basePlayerDelegate.fullscreenController.isFullscreen.value) {
+                        basePlayerDelegate.fullscreenController.smallScreen()
+                    } else {
+                        basePlayerDelegate.onBackPressed()
+                    }
+                },
+                onClosePlayer = {
+                    basePlayerDelegate.closePlayer()
+                },
                 initialDeepLink = pendingDeepLink,
                 onInitialDeepLinkConsumed = {
                     pendingDeepLink = null
@@ -539,10 +547,6 @@ class MainActivity : ComponentActivity(), DIAware {
 
     override fun onBackPressed() {
         if (basePlayerDelegate.fullscreenController.isFullscreen.value && basePlayerDelegate.onBackPressed()) {
-            return
-        }
-        if (startViewState.showSearchDialog) {
-            startViewState.closeSearchDialog()
             return
         }
         if (startViewState.isDrawerOpen()) {

@@ -4,15 +4,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import bilibili.main.community.reply.v1.CursorReply
 import bilibili.main.community.reply.v1.CursorReq
 import bilibili.main.community.reply.v1.MainListReq
 import bilibili.main.community.reply.v1.ReplyGRPC
 import bilibili.main.community.reply.v1.ReplyInfo
+import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
+import cn.a10miaomiao.bilimiao.compose.common.emitter.SharedFlowEmitter
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.MessageDialogState
-import cn.a10miaomiao.bilimiao.compose.pages.community.components.ReplyEditDialogState
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpacePage
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.entity.comm.PaginationInfo
@@ -25,6 +29,7 @@ import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.store.UserStore
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
+import com.a10miaomiao.bilimiao.comm.utils.miaoLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,11 +50,10 @@ class MainReplyViewModel(
     private val pageNavigation: PageNavigation by instance()
     private val messageDialog: MessageDialogState by instance()
     private val userStore: UserStore by instance()
+    private val emitter: SharedFlowEmitter by instance()
 
-    val editDialogState = ReplyEditDialogState(
-        scope = viewModelScope,
-        onAddReply = ::addNewReply,
-    )
+    var replyEditParams by mutableStateOf<ReplyEditParams?>(null)
+        private set
 
     private var _sortOrder = MutableStateFlow(3)
     val sortOrder: StateFlow<Int> get() = _sortOrder
@@ -68,8 +72,14 @@ class MainReplyViewModel(
     private val _currentReply = MutableStateFlow<ReplyInfo?>(null)
     val currentReply: StateFlow<ReplyInfo?> get() = _currentReply
 
+
     init {
         loadData()
+        viewModelScope.launch {
+            emitter.collectAction<EmitterAction.ReplyAdded> {
+                addNewReply(it.reply)
+            }
+        }
     }
 
     private fun addNewReply(reply: VideoCommentReplyInfo) {
@@ -106,6 +116,13 @@ class MainReplyViewModel(
             val res = BiliGRPCHttp.request {
                 ReplyGRPC.mainList(req)
             }.awaitCall()
+            miaoLogger().d(
+                "MainListResp" to "oid=$oid type=$type " +
+                        "replies=${res.replies.size} " +
+                        "cursor=${res.cursor} upTop=${res.upTop != null} " +
+                        "adminTop=${res.adminTop != null} voteTop=${res.voteTop != null} " +
+                        "notice=${res.notice}",
+            )
             val listData = list.data.value.toMutableList()
             if (_cursor == null) {
                 res.upTop?.let {
@@ -284,7 +301,11 @@ class MainReplyViewModel(
             type = type,
             oid = oid,
         )
-        editDialogState.show(params)
+        replyEditParams = params
+    }
+
+    fun closeReplyDialog() {
+        replyEditParams = null
     }
 
     fun menuItemClick(item: MenuItemPropInfo) {

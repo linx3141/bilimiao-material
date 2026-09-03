@@ -2,6 +2,9 @@ package cn.a10miaomiao.bilimiao.compose.pages.setting
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,6 +19,8 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.proxy.ProxyRepository
 import cn.a10miaomiao.bilimiao.compose.pages.setting.components.ProxyServerCard
 import cn.a10miaomiao.bilimiao.compose.pages.setting.proxy.AddProxyServerPage
@@ -63,6 +68,7 @@ private class ProxySettingPageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProxySettingPageContent(
     viewModel: ProxySettingPageViewModel
@@ -106,19 +112,27 @@ private fun ProxySettingPageContent(
         }
 
         LazyColumn(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(
-                serverList.size,
-                key = { it },
-            ) {
-                val item = serverList[it]
-                ProxyServerCard(
-                    name = item.name,
-                    host = item.host,
-                    isTrust = item.isTrust,
-                    onClick = { viewModel.toEditPage(it) }
-                )
+            itemsIndexed(
+                serverList,
+                key = { index, _ -> index },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        serverList.size,
+                    ),
+                ) {
+                    ProxyServerCard(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        name = item.name,
+                        host = item.host,
+                        isTrust = item.isTrust,
+                        onClick = { viewModel.toEditPage(index) }
+                    )
+                }
             }
 
             item {

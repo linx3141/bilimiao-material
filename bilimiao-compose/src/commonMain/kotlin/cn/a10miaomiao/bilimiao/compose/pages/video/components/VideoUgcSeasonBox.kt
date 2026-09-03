@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,9 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import cn.a10miaomiao.bilimiao.compose.common.preference.ExpressiveSwitch
 import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDetailViewModel
 import com.a10miaomiao.bilimiao.comm.store.PlayListStore
 import com.a10miaomiao.bilimiao.comm.store.PlayerStore
@@ -56,11 +55,12 @@ fun VideoUgcSeasonBox(
     Box(modifier) {
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceBright)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 12.dp),
             ) {
                 Column(
                     modifier = Modifier
@@ -76,7 +76,7 @@ fun VideoUgcSeasonBox(
                                 onChangeExpand(true)
                             }
                         }
-                        .padding(5.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
                     Text(
                         text = ugcSeason.title,
@@ -92,9 +92,10 @@ fun VideoUgcSeasonBox(
                 Text(
                     text = "自动连播",
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(end = 8.dp),
                 )
-                Switch(
-                    modifier = Modifier.scale(0.75f),
+                ExpressiveSwitch(
                     checked = viewModel.isAutoPlaySeason,
                     onCheckedChange = viewModel::updateIsAutoPlaySeason,
                 )
@@ -169,6 +170,8 @@ fun VideoUgcSeasonBox(
                                         desc = episode.coverRightText,
                                         isCurrent = currentAid == episode.aid,
                                         isPlaying = playAid == episode.aid,
+                                        isChargeVideo = episode.episodePay
+                                            || episode.badgeStyle?.text?.contains("充电") == true,
                                         onClick = {
                                             viewModel.changeVideo(episode.aid.toString())
                                         },

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user.content
 
 import androidx.compose.material.icons.Icons
@@ -5,7 +7,9 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,17 +20,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,17 +54,21 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.ExpressiveSwitch
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.bangumi.BangumiDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.playlist.PlayListPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserFavouriteDetailPage
+import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.components.FavouriteEditForm
 import cn.a10miaomiao.bilimiao.compose.pages.user.components.FavouriteEditFormState
 import cn.a10miaomiao.bilimiao.compose.pages.user.components.TitleBar
-import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
-import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.entity.ResponseData
 import com.a10miaomiao.bilimiao.comm.entity.ResultInfo
@@ -69,18 +80,21 @@ import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
 import com.a10miaomiao.bilimiao.comm.mypage.SearchConfigInfo
 import com.a10miaomiao.bilimiao.comm.mypage.myMenu
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
+import com.a10miaomiao.bilimiao.comm.network.MiaoHttp
 import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.store.PlayListStore
-import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.store.UserStore
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
+import com.a10miaomiao.bilimiao.comm.utils.miaoLogger
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 private class UserFavouriteDetailViewModel(
     override val di: DI,
@@ -91,14 +105,19 @@ private class UserFavouriteDetailViewModel(
 
     private val pageNavigation: PageNavigation by instance()
     val userStore: UserStore by instance()
-    private val playerDelegate: BasePlayerDelegate by instance()
-    private val playerStore by instance<PlayerStore>()
     private val playListStore by instance<PlayListStore>()
 
     var mediaInfo = MutableStateFlow<MediaListInfo?>(null)
     val isRefreshing = MutableStateFlow(false)
     val list = FlowPaginationInfo<MediasInfo>()
     val isAutoPlay = MutableStateFlow(false)
+    /** bvid -> 是否充电专属（收藏夹接口不带该字段，需按条目走 web 视图接口补充） */
+    val chargeVideoMap = mutableStateMapOf<String, Boolean>()
+
+    companion object {
+        // 跨页面共享的充电判定缓存，避免重复请求
+        private val chargeCache = mutableMapOf<String, Boolean>()
+    }
 
     init {
         loadData(1)
@@ -129,6 +148,7 @@ private class UserFavouriteDetailViewModel(
                 }
                 list.finished.value = !result.has_more || mediaList.isEmpty()
                 list.pageNum = pageNum
+                checkChargeVideos(mediaList)
             } else {
                 list.fail.value = res.message
             }
@@ -139,6 +159,54 @@ private class UserFavouriteDetailViewModel(
             list.loading.value = false
             isRefreshing.value = false
         }
+    }
+
+    /** 逐条补充充电判定：只请求本页尚未缓存过的条目 */
+    private fun checkChargeVideos(medias: List<MediasInfo>) {
+        medias.forEach { media ->
+            val bvid = media.bvid
+            if (bvid.isNotBlank() && !chargeVideoMap.containsKey(bvid)) {
+                viewModelScope.launch {
+                    chargeVideoMap[bvid] = checkChargeFromWeb(bvid)
+                }
+            }
+        }
+    }
+
+    private suspend fun checkChargeFromWeb(bvid: String): Boolean {
+        chargeCache[bvid]?.let { return it }
+        return try {
+            val res = MiaoHttp.request {
+                url = "https://api.bilibili.com/x/web-interface/view?bvid=$bvid"
+            }.awaitCall().json<ChargeViewInfo>()
+            val data = res.data
+            val charge = data?.is_upower_exclusive == true
+                || data?.rights?.ugc_pay == 1
+                || data?.rights?.arc_pay == 1
+            chargeCache[bvid] = charge
+            charge
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    @Serializable
+    private data class ChargeViewInfo(
+        val code: Int = 0,
+        val data: ChargeViewData? = null,
+    ) {
+        @Serializable
+        data class ChargeViewData(
+            val is_upower_exclusive: Boolean = false,
+            val rights: ChargeRights? = null,
+        )
+
+        @Serializable
+        data class ChargeRights(
+            val ugc_pay: Int = 0,
+            val arc_pay: Int = 0,
+        )
     }
 
     fun tryAgainLoadData() = loadData()
@@ -166,20 +234,10 @@ private class UserFavouriteDetailViewModel(
         val ogvInfo = item.ogv
         if (isAutoPlay.value) {
             if (ugcInfo != null) {
+                // 自动连播：先把收藏夹设为播放列表，再进入对应的视频详情页
+                //（进入详情页后强制自动播放一次，保持原来点击即播放的行为）
                 addPlayList()
-                if (playerStore.state.aid != item.id) {
-                    playerDelegate.openPlayer(
-                        VideoPlayerSource(
-                            mainTitle = item.title,
-                            title = item.title,
-                            coverUrl = item.cover,
-                            aid = item.id,
-                            id = ugcInfo.first_cid,
-                            ownerId = item.upper.mid,
-                            ownerName = item.upper.name,
-                        )
-                    )
-                }
+                pageNavigation.navigate(VideoDetailPage(id = item.id, autoPlay = true))
                 return
             } else {
                 GlobalToaster.show("自动连播仅支持普通视频")
@@ -456,8 +514,9 @@ internal fun UserFavouriteDetailContent(
                 Text(
                     text = "自动连播",
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                Switch(
+                ExpressiveSwitch(
                     modifier = Modifier.scale(0.75f),
                     checked = isAutoPlay,
                     onCheckedChange = viewModel::changeAutoPlay,
@@ -469,20 +528,34 @@ internal fun UserFavouriteDetailContent(
             refreshing = isRefreshing,
             onRefresh = { viewModel.refresh() },
         ) {
+            val colCount = rememberGridColumnCount(300.dp)
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(300.dp),
+                columns = GridCells.Fixed(colCount),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = 12.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(list) {
+                itemsIndexed(
+                    list,
+                    key = { _, item -> item.id },
+                ) { index, item ->
                     VideoItemBox(
-                        modifier = Modifier.padding(10.dp),
-                        title = it.title,
-                        pic = it.cover,
-                        upperName = it.upper.name,
-                        playNum = it.cnt_info.play,
-                        damukuNum = it.cnt_info.danmaku,
-                        duration = NumberUtil.converDuration(it.duration),
+                        modifier = Modifier,
+                        title = item.title,
+                        pic = item.cover,
+                        upperName = item.upper.name,
+                        playNum = item.cnt_info.play,
+                        damukuNum = item.cnt_info.danmaku,
+                        duration = NumberUtil.converDuration(item.duration),
+                        isChargeVideo = item.isChargeVideo
+                            || viewModel.chargeVideoMap[item.bvid] == true,
+                        segmentedShape = gridSegmentedShape(index, list.size, colCount),
                         onClick = {
-                            viewModel.openVideo(it)
+                            viewModel.openVideo(item)
                         }
                     )
                 }
@@ -572,7 +645,8 @@ internal fun UserFavouriteDetailContent(
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     } else if (showDeleteDialog) {
         var loading by remember {
@@ -624,7 +698,8 @@ internal fun UserFavouriteDetailContent(
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

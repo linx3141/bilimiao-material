@@ -7,12 +7,15 @@ import bilibili.app.archive.v1.Page
 import bilibili.app.view.v1.ViewGRPC
 import bilibili.app.view.v1.ViewReply
 import bilibili.app.view.v1.ViewReq
-import cn.a10miaomiao.bilimiao.compose.base.BottomSheetState
+import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
+import cn.a10miaomiao.bilimiao.compose.common.emitter.SharedFlowEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.StartViewState
 import cn.a10miaomiao.bilimiao.compose.pages.playlist.PlayListPage
 import cn.a10miaomiao.bilimiao.compose.pages.search.SearchResultPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSeasonDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpacePage
+import cn.a10miaomiao.bilimiao.compose.pages.video.components.CoverImageDialogState
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoAddFavoriteDialogState
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoCoinDialogState
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoDownloadDialogState
@@ -22,12 +25,14 @@ import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.mapPreferences
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
 import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
+import com.a10miaomiao.bilimiao.comm.delegate.player.createVideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.entity.player.PlayListFrom
 import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
+import com.a10miaomiao.bilimiao.comm.network.MiaoHttp
 import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.store.FilterStore
 import com.a10miaomiao.bilimiao.comm.store.PlayListStore
@@ -35,6 +40,7 @@ import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.store.UserLibraryStore
 import com.a10miaomiao.bilimiao.comm.store.UserStore
 import com.a10miaomiao.bilimiao.comm.utils.miaoLogger
+import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,16 +50,17 @@ import kotlinx.coroutines.withContext
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import kotlinx.serialization.Serializable
 import kotlin.collections.mapNotNull
 
 class VideoDetailViewModel(
     override val di: DI,
     id: String,
+    private val autoPlay: Boolean = false,
 ) : ViewModel(), DIAware {
 
     private val pageNavigation by instance<PageNavigation>()
     private val basePlayerDelegate by instance<BasePlayerDelegate>()
-    private val downloadManager by instance<DownloadManager>()
 
     var openUrl: (String) -> Unit = {}
     var copyToClipboard: (String) -> Unit = {}
@@ -65,7 +72,29 @@ class VideoDetailViewModel(
     private val playListStore: PlayListStore by instance()
     private val userStore: UserStore by instance()
     private val userLibraryStore: UserLibraryStore by instance()
-    private val bottomSheetState: BottomSheetState by instance()
+    private val emitter: SharedFlowEmitter by instance()
+    private val downloadManager: DownloadManager by instance()
+    private val startViewState: StartViewState by instance()
+
+    /** 投币/收藏/下载弹窗状态（弹窗样式与发送评论弹窗一致） */
+    val coinDialogState = VideoCoinDialogState(viewModelScope) {
+        viewModelScope.launch { emitter.emit(EmitterAction.CoinChanged(it)) }
+    }
+    val favoriteDialogState = VideoAddFavoriteDialogState(viewModelScope) {
+        viewModelScope.launch {
+            emitter.emit(EmitterAction.FavoriteChanged(it))
+        }
+    }
+    val downloadDialogState = VideoDownloadDialogState(viewModelScope)
+
+    /** 封面预览弹窗状态（与下载/收藏/投币弹窗同款样式） */
+    val coverDialogState = CoverImageDialogState(viewModelScope).also { state ->
+        state.openMore = {
+            if (state.bvid.isNotBlank()) {
+                pageNavigation.navigate(VideoDetailPage(state.bvid))
+            }
+        }
+    }
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> get() = _isRefreshing
@@ -76,44 +105,84 @@ class VideoDetailViewModel(
     private val _detailData = MutableStateFlow<ViewReply?>(null)
     val detailData: StateFlow<ViewReply?> get() = _detailData
 
-    // 自动连播合集
-    private val _isAutoPlaySeason = mutableStateOf(true)
+    /** 是否充电专属视频（gRPC 接口的 rights 不带该标志，需配合 web 接口 is_upower_exclusive 判定） */
+    val isChargeVideo = MutableStateFlow(false)
+
+    // 自动连播合集（默认关闭）
+    private val _isAutoPlaySeason = mutableStateOf(false)
     val isAutoPlaySeason get() = _isAutoPlaySeason.value
 
     // 此ViewModel启动播放的视频Aid
     private var videoAidToPlay = ""
 
-    val coinDialogState = VideoCoinDialogState(
-        scope = viewModelScope,
-        onChanged = ::updateCoinState,
-    )
-    val addFavoriteDialogState = VideoAddFavoriteDialogState(
-        scope = viewModelScope,
-        onChanged = ::updateFavoriteState,
-    )
-    val downloadDialogState = VideoDownloadDialogState(
-        scope = viewModelScope,
-    )
+    // 本页面注册到 StartViewState 的视频 aid，页面离开组合时按值注销
+    private var registeredPageAid: String? = null
+
+    // 强制自动播放一次（收藏夹自动连播点击进入详情页时使用）
+    private var forceAutoPlayOnce = autoPlay
 
     private var _id = id
 
     init {
         loadData()
+        viewModelScope.launch {
+            val emitter by instance<SharedFlowEmitter>()
+            emitter.collectAction<EmitterAction.CoinChanged> {
+                updateCoinState(it.num)
+            }
+        }
+        viewModelScope.launch {
+            val emitter by instance<SharedFlowEmitter>()
+            emitter.collectAction<EmitterAction.FavoriteChanged> {
+                updateFavoriteState(it.state)
+            }
+        }
     }
 
     fun onBackPressed() {
         viewModelScope.launch(Dispatchers.Main) {
-            if (basePlayerDelegate.isOpened()
-                && basePlayerDelegate.getSourceIds().aid == videoAidToPlay) {
-                val openMode = SettingPreferences.mapPreferences {
-                    it[SettingPreferences.PlayerOpenMode] ?: SettingConstants.PLAYER_OPEN_MODE_DEFAULT
-                }
-                if (openMode and SettingConstants.PLAYER_OPEN_MODE_AUTO_CLOSE != 0) {
-                    basePlayerDelegate.closePlayer()
-                }
-            }
+            closePlayerIfNeeded()
             runCatching {
                 pageNavigation.popBackStack()
+            }
+        }
+    }
+
+    /**
+     * 页面进入组合时重新注册当前视频页 aid。
+     * 返回导航复用同一 ViewModel（不重新加载数据）时，
+     * 页面离开组合会注销注册，这里在重新进入时补注册。
+     */
+    fun registerPage() {
+        val pageAid = detailData.value?.getArcData()?.aid?.toString().orEmpty()
+        if (pageAid.isNotEmpty()) {
+            registeredPageAid = pageAid
+            startViewState.currentVideoPageAid = pageAid
+        }
+    }
+
+    /**
+     * 页面退出（返回手势完成、页面离开组合）时调用：按设置关闭当前视频播放器。
+     * 返回导航本身由导航层处理，以支持预测性返回手势动画。
+     */
+    fun onPageDispose() {
+        // 只有当前注册值仍属于本页面时才清空，避免两层视频详情页切换时误删新页面的注册
+        if (startViewState.currentVideoPageAid == registeredPageAid) {
+            startViewState.currentVideoPageAid = null
+        }
+        viewModelScope.launch(Dispatchers.Main) {
+            closePlayerIfNeeded()
+        }
+    }
+
+    private suspend fun closePlayerIfNeeded() {
+        if (basePlayerDelegate.isOpened()
+            && basePlayerDelegate.getSourceIds().aid == videoAidToPlay) {
+            val openMode = SettingPreferences.mapPreferences {
+                it[SettingPreferences.PlayerOpenMode] ?: SettingConstants.PLAYER_OPEN_MODE_DEFAULT
+            }
+            if (openMode and SettingConstants.PLAYER_OPEN_MODE_AUTO_CLOSE != 0) {
+                basePlayerDelegate.closePlayer()
             }
         }
     }
@@ -140,6 +209,22 @@ class VideoDetailViewModel(
                 ViewGRPC.view(req)
             }.awaitCall()
             _detailData.value = res
+            // 在自动播放前同步注册当前页面的视频 aid，
+            // 避免"忽略返回手势"关闭时，详情页自动开播被误判为新页面而关掉播放器
+            registerPage()
+            // 诊断：输出 gRPC 详情接口解码出的充电相关字段，便于确认标识判定
+            val chargeArc = res.getArcData()
+            val rightsCharge = chargeArc?.rights?.let {
+                it.ugcPay == 1 || it.arcPay == 1
+            } == true
+            isChargeVideo.value = rightsCharge
+            miaoLogger() debug "充电标识-详情: aid=${chargeArc?.aid} " +
+                "ugcPay=${chargeArc?.rights?.ugcPay} " +
+                "arcPay=${chargeArc?.rights?.arcPay} " +
+                "payFreeWatch=${chargeArc?.rights?.payFreeWatch}"
+            if (!rightsCharge) {
+                loadChargeFromWeb()
+            }
             autoStartPlay()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -150,10 +235,59 @@ class VideoDetailViewModel(
         }
     }
 
+    /**
+     * 与 PiliPlus 一致：gRPC 详情接口不带充电标识，
+     * 改用 web 视图接口的 is_upower_exclusive（及 rights.ugc_pay/arc_pay）兜底判定。
+     */
+    private fun loadChargeFromWeb() = viewModelScope.launch {
+        val bvid = _detailData.value?.getBvid() ?: return@launch
+        try {
+            val res = MiaoHttp.request {
+                url = "https://api.bilibili.com/x/web-interface/view?bvid=$bvid"
+            }.awaitCall().json<ChargeViewInfo>()
+            val data = res.data
+            val charge = data?.is_upower_exclusive == true
+                || data?.rights?.ugc_pay == 1
+                || data?.rights?.arc_pay == 1
+            miaoLogger() debug "充电标识-详情web: bvid=$bvid " +
+                "is_upower_exclusive=${data?.is_upower_exclusive} " +
+                "ugc_pay=${data?.rights?.ugc_pay} arc_pay=${data?.rights?.arc_pay}"
+            if (charge) {
+                isChargeVideo.value = true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    @Serializable
+    private data class ChargeViewInfo(
+        val code: Int = 0,
+        val data: ChargeViewData? = null,
+    ) {
+        @Serializable
+        data class ChargeViewData(
+            val is_upower_exclusive: Boolean = false,
+            val rights: ChargeRights? = null,
+        )
+
+        @Serializable
+        data class ChargeRights(
+            val ugc_pay: Int = 0,
+            val arc_pay: Int = 0,
+        )
+    }
+
     private fun autoStartPlay() = viewModelScope.launch(Dispatchers.Main) {
         val arcData = detailData.value?.getArcData() ?: return@launch
         if (basePlayerDelegate.getSourceIds().aid == arcData.aid.toString()) {
             // 同个视频不替换播放
+            return@launch
+        }
+        if (forceAutoPlayOnce) {
+            // 收藏夹自动连播点击进入：不受全局"播放器自动控制"影响，直接开播一次
+            forceAutoPlayOnce = false
+            playVideo()
             return@launch
         }
         val openMode = SettingPreferences.mapPreferences {
@@ -250,7 +384,7 @@ class VideoDetailViewModel(
 
         // 播放视频
         basePlayerDelegate.openPlayer(
-            VideoPlayerSource(
+            createVideoPlayerSource(
                 mainTitle = arc.title,
                 title = title,
                 coverUrl = arc.pic,
@@ -472,12 +606,17 @@ class VideoDetailViewModel(
 
     fun openVideoPages() {
         val arc = detailData.value?.getArcData() ?: return
-        bottomSheetState.open(VideoPagesPage(arc.aid.toString()))
+        pageNavigation.navigate(VideoPagesPage(arc.aid.toString()))
     }
 
     fun openCoverActivity() {
         val arc = detailData.value?.getArcData() ?: return
-        openCoverImage(arc.aid.toString())
+        coverDialogState.show(
+            aid = arc.aid.toString(),
+            bvid = getBvid(),
+            title = arc.title,
+            coverUrl = UrlUtil.autoHttps(arc.pic),
+        )
     }
 
     fun toUserPage(mid: String) {
@@ -522,7 +661,18 @@ class VideoDetailViewModel(
             GlobalToaster.show("请先登录")
             return
         }
-        addFavoriteDialogState.show(aid)
+        favoriteDialogState.show(aid)
+    }
+
+    fun openDownloadDialog() {
+        val videoDetail = detailData.value ?: return
+        val videoArc = videoDetail.getArcData() ?: return
+        downloadDialogState.show(
+            manager = downloadManager,
+            bvid = videoDetail.getBvid(),
+            videoArc = videoArc,
+            videoPages = videoDetail.getPages(),
+        )
     }
 
     fun openShare(id: String, title: String) {
@@ -540,12 +690,7 @@ class VideoDetailViewModel(
         val viewPages = videoDetail.getPages()
         when (item.key) {
             MenuKeys.download -> {
-                downloadDialogState.show(
-                    downloadManager,
-                    videoDetail.getBvid(),
-                    videoArc,
-                    viewPages,
-                )
+                openDownloadDialog()
             }
             MenuKeys.favourite -> {
                 openAddFavoriteDialog(videoArc.aid.toString())

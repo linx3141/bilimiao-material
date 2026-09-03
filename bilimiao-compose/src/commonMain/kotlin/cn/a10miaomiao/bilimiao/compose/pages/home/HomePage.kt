@@ -31,6 +31,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -72,6 +74,7 @@ import com.a10miaomiao.bilimiao.comm.datastore.editPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.mapPreferences
 import com.a10miaomiao.bilimiao.comm.entity.miao.MiaoAdInfo
 import com.a10miaomiao.bilimiao.comm.entity.miao.MiaoSettingInfo
+import com.a10miaomiao.bilimiao.comm.entity.miao.normalizeMiaoSettingList
 import com.a10miaomiao.bilimiao.comm.mypage.MenuActions
 import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
@@ -95,6 +98,7 @@ import org.kodein.di.DIAware
 import org.kodein.di.instance
 import java.util.Calendar
 import java.util.GregorianCalendar
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 object HomePage : ComposePage {
@@ -259,7 +263,8 @@ private class HomePageViewModel(
 
     fun saveSettingList(settingList: List<MiaoSettingInfo>) {
         try {
-            val jsonStr = Json.encodeToString(settingList)
+            // 落盘前先做本地定制：赞助入口替换为爱发电、移除 QQ 频道等推广项
+            val jsonStr = Json.encodeToString(settingList.normalizeMiaoSettingList())
             fileStorage.writeText("settingList.json", jsonStr)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -329,12 +334,6 @@ private fun HomePageContent(
         configId = pageConfigId,
         onMenuItemClick = viewModel::menuItemClick,
     )
-    BackHandler(
-        onBack = {
-            // Handled by system back
-        },
-    )
-
     val scope = rememberCoroutineScope()
     val platformContext = LocalPlatformContext.current
 
@@ -344,6 +343,14 @@ private fun HomePageContent(
         pageCount = { viewModel.tabs.size },
         initialPage = viewModel.initialPage
     )
+    // 冷启动优化：首帧只组合当前 Tab，首帧后再补齐相邻 Tab。
+    // beyondViewportPageCount 决定每次布局时 Pager 会 measure 多少个 Tab：
+    // 三个 Tab 全量 measure 会让输入法动画/交互期间的布局明显变重，
+    // 与底栏四大页面一致降为 1（当前 + 相邻），减少 measure 开销。
+    var contentReady by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        contentReady = true
+    }
     val emitter = localEmitter()
     val combinedTabClick = combinedTabDoubleClick(
         pagerState = pagerState,
@@ -396,10 +403,19 @@ private fun HomePageContent(
             pagerState = pagerState,
             onEdgeSwipeOpen = {
 
-            }
+            },
+            beyondViewportPageCount = if (contentReady) 1 else 0,
         ) { index ->
-            saveableStateHolder.SaveableStateProvider(index) {
-                viewModel.tabs[index].PageContent(viewModel.pageState)
+            // 每个 Tab 独立图层缓存：整树重绘时非当前 Tab 走 GPU 合成
+            // （与底栏四大页面一致），输入法动画/交互时只重绘当前页
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { },
+            ) {
+                saveableStateHolder.SaveableStateProvider(index) {
+                    viewModel.tabs[index].PageContent(viewModel.pageState)
+                }
             }
         }
     }
@@ -441,6 +457,7 @@ private fun HomePageContent(
                     }
                 }
             },
+            properties = FullScreenDialogProperties,
         )
     }
 }

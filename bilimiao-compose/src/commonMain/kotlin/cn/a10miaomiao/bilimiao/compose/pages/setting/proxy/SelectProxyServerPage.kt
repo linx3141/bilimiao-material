@@ -3,6 +3,7 @@ package cn.a10miaomiao.bilimiao.compose.pages.setting.proxy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
@@ -20,6 +21,8 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.proxy.ProxyRepository
 import cn.a10miaomiao.bilimiao.compose.pages.setting.components.ProxyServerCard
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
@@ -31,6 +34,7 @@ import org.kodein.di.compose.rememberInstance
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class SelectProxyServerPage : ComposePage {
@@ -109,6 +113,7 @@ internal class SelectProxyServerPageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SelectProxyServerPageContent(
     viewModel: SelectProxyServerPageViewModel
@@ -152,19 +157,27 @@ internal fun SelectProxyServerPageContent(
         }
 
         LazyColumn(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(
-                serverList.size,
-                key = { it },
-            ) { i ->
-                val item = serverList[i]
-                ProxyServerCard(
-                    name = item.name,
-                    host = item.host,
-                    isTrust = item.isTrust,
-                    onClick = { viewModel.selectedServer(i) }
-                )
+            itemsIndexed(
+                serverList,
+                key = { index, _ -> index },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        serverList.size,
+                    ),
+                ) {
+                    ProxyServerCard(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        name = item.name,
+                        host = item.host,
+                        isTrust = item.isTrust,
+                        onClick = { viewModel.selectedServer(index) }
+                    )
+                }
             }
 
             item {
@@ -304,7 +317,8 @@ internal fun SelectProxyServerPageContent(
                             fontWeight = FontWeight.W700,
                         )
                     }
-                }
+                },
+                properties = FullScreenDialogProperties,
             ) // AlertDialog
         }  // if
     }

@@ -201,7 +201,7 @@ open class VideoPlayerSource(
         val nextIndex = index + 1
         if (nextIndex in pages.indices) {
             val nextPage = pages[nextIndex]
-            val nextPlayerSource = VideoPlayerSource(
+            val nextPlayerSource = createVideoPlayerSource(
                 mainTitle = mainTitle,
                 title = nextPage.title,
                 coverUrl = coverUrl,

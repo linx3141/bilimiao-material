@@ -27,24 +27,26 @@ import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.common.platform.AppInfo
 import cn.a10miaomiao.bilimiao.compose.common.platform.FileStorage
 import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceFlow
-import cn.a10miaomiao.bilimiao.compose.components.preference.imageCachePreference
 import cn.a10miaomiao.bilimiao.compose.pages.filter.FilterSettingPage
 import cn.a10miaomiao.bilimiao.compose.platform.LocalPlatformContext
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.appDataStore
 import com.a10miaomiao.bilimiao.comm.entity.miao.MiaoSettingInfo
+import com.a10miaomiao.bilimiao.comm.entity.miao.normalizeMiaoSettingList
 import com.a10miaomiao.bilimiao.comm.miao.MiaoJson
 import com.a10miaomiao.bilimiao.comm.store.UserStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.Serializable
 import cn.a10miaomiao.bilimiao.compose.common.preference.ProvidePreferenceLocals
 import cn.a10miaomiao.bilimiao.compose.common.preference.preference
-import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceCategory
+import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceGroup
 import cn.a10miaomiao.bilimiao.compose.common.preference.switchPreference
+import cn.a10miaomiao.bilimiao.compose.components.preference.ImageCachePreference
 import org.kodein.di.compose.rememberInstance
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class SettingPage : ComposePage {
@@ -75,7 +77,9 @@ private class SettingPageViewModel(
     private fun loadMoreSettingList() {
         try {
             val jsonStr = fileStorage.readText("settingList.json") ?: return
-            moreSettingList.value = MiaoJson.fromJson<List<MiaoSettingInfo>>(jsonStr)
+            // 兼容本地旧缓存：同样执行本地定制（赞助替换为爱发电、移除QQ频道项）
+            moreSettingList.value =
+                MiaoJson.fromJson<List<MiaoSettingInfo>>(jsonStr).normalizeMiaoSettingList()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -103,10 +107,6 @@ private class SettingPageViewModel(
 
     fun toFilterSettingPage() {
         pageNavigation.navigate(FilterSettingPage())
-    }
-
-    fun toFlagsSettingPage() {
-        pageNavigation.navigate(FlagsSettingPage())
     }
 
     fun toAboutPage() {
@@ -151,157 +151,149 @@ private fun SettingPageContent(
                     modifier = Modifier.height(windowInsets.topDp.dp)
                 )
             }
-            preferenceCategory(
+            preferenceGroup(
                 key = "general",
                 title = {
-                    Text( "常规")
+                    Text("常规")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.IsBestRegion.name,
-                defaultValue = false,
-                title = {
-                    Text( "使用旧版分区")
-                },
-                summary = {
-                    Text("你知道雪为什么是白色的吗")
+            ) {
+                switchPreference(
+                    key = SettingPreferences.IsBestRegion.name,
+                    defaultValue = false,
+                    title = {
+                        Text("使用旧版分区")
+                    },
+                    summary = {
+                        Text("你知道雪为什么是白色的吗")
+                    }
+                )
+                switchPreference(
+                    key = SettingPreferences.IsLockScreenOrientationPortrait.name,
+                    defaultValue = false,
+                    title = {
+                        Text("APP界面竖屏锁定")
+                    },
+                    summary = {
+                        Text("不会影响全屏播放方向")
+                    }
+                )
+                preference(
+                    key = "theme",
+                    title = {
+                        Text("主题设置")
+                    },
+                    summary = {
+                        Text("你知道雪为什么是白色的吗")
+                    },
+                    onClick = viewModel::toThemePage,
+                )
+                preference(
+                    key = "home",
+                    title = {
+                        Text("首页设置")
+                    },
+                    summary = {
+                        Text("整个宇宙将为你闪烁")
+                    },
+                    onClick = viewModel::toHomeSettingPage
+                )
+                preference(
+                    key = "video",
+                    title = {
+                        Text("播放设置")
+                    },
+                    summary = {
+                        Text("咖啡拿铁,咖啡摩卡,卡布奇诺!")
+                    },
+                    onClick = viewModel::toVideoSettingPage
+                )
+                preference(
+                    key = "danmaku",
+                    title = {
+                        Text("弹幕设置")
+                    },
+                    summary = {
+                        Text("相信的心就是你的魔法")
+                    },
+                    onClick = viewModel::toDanmakuSettingPage,
+                )
+                preference(
+                    key = "filter",
+                    title = {
+                        Text("屏蔽管理")
+                    },
+                    summary = {
+                        Text("对时光机、首页推荐和热门生效")
+                    },
+                    onClick = viewModel::toFilterSettingPage
+                )
+                switchPreference(
+                    key = SettingPreferences.IsAutoCheckVersion.name,
+                    title = {
+                        Text("自动检测新版本")
+                    },
+                    summary = {
+                        Text("已经没有什么好害怕的了")
+                    },
+                    defaultValue = true,
+                )
+                item {
+                    ImageCachePreference()
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.IsLockScreenOrientationPortrait.name,
-                defaultValue = false,
-                title = {
-                    Text( "APP界面竖屏锁定")
-                },
-                summary = {
-                    Text("不会影响全屏播放方向")
-                }
-            )
-            preference(
-                key = "theme",
-                title = {
-                    Text("切换主题")
-                },
-                summary = {
-                    Text("你知道雪为什么是白色的吗")
-                },
-                onClick = viewModel::toThemePage,
-            )
-            preference(
-                key = "home",
-                title = {
-                    Text("首页设置")
-                },
-                summary = {
-                    Text("整个宇宙将为你闪烁")
-                },
-                onClick = viewModel::toHomeSettingPage
-            )
-            preference(
-                key = "video",
-                title = {
-                    Text("播放设置")
-                },
-                summary = {
-                    Text("咖啡拿铁,咖啡摩卡,卡布奇诺!")
-                },
-                onClick = viewModel::toVideoSettingPage
-            )
-            preference(
-                key = "danmaku",
-                title = {
-                    Text("弹幕设置")
-                },
-                summary = {
-                    Text("相信的心就是你的魔法")
-                },
-                onClick = viewModel::toDanmakuSettingPage,
-            )
-            preference(
-                key = "filter",
-                title = {
-                    Text("屏蔽管理")
-                },
-                summary = {
-                    Text("对时光机、首页推荐和热门生效")
-                },
-                onClick = viewModel::toFilterSettingPage
-            )
-            switchPreference(
-                key = SettingPreferences.IsAutoCheckVersion.name,
-                title = {
-                    Text("自动检测新版本")
-                },
-                summary = {
-                    Text("已经没有什么好害怕的了")
-                },
-                defaultValue = true,
-            )
-            imageCachePreference(
-                key = "image_cache",
-            )
 
-            preference(
-                key = "flags_setting",
-                title = {
-                    Text("实验性功能")
-                },
-                summary = {
-                    Text("自然选择号，前进四！")
-                },
-                onClick = viewModel::toFlagsSettingPage,
-            )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "other",
                 title = {
-                    Text( "其它")
+                    Text("其它")
                 }
-            )
-            preference(
-                key = "about",
-                title = {
-                    Text("关于")
-                },
-                summary = {
-                    Text("版本：${viewModel.versionName}")
-                },
-                onClick = viewModel::toAboutPage
-            )
-            moreSettingList.forEach {
-                if (it.type == "pref") {
+            ) {
+                preference(
+                    key = "about",
+                    title = {
+                        Text("关于")
+                    },
+                    summary = {
+                        Text("版本：${viewModel.versionName}")
+                    },
+                    onClick = viewModel::toAboutPage
+                )
+                moreSettingList.forEach {
+                    if (it.type == "pref") {
+                        preference(
+                            key = it.name,
+                            title = {
+                                Text(text = it.title)
+                            },
+                            summary = {
+                                Text(text = it.summary)
+                            },
+                            onClick = {
+                                viewModel.preferenceClick(it) { url ->
+                                    platformContext.openUrl(url)
+                                }
+                            },
+                        )
+                    }
+                }
+                if (userState.isLogin()) {
                     preference(
-                        key = it.name,
+                        key = "logout",
                         title = {
-                            Text(text = it.title)
-                        },
-                        summary = {
-                            Text(text = it.summary)
+                            Text(
+                                text = "退出登录",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                color = Color.Red,
+                            )
                         },
                         onClick = {
-                            viewModel.preferenceClick(it) { url ->
-                                platformContext.openUrl(url)
-                            }
-                        },
+                            showLogoutDialog.value = true
+                        }
                     )
                 }
             }
-            if (userState.isLogin()) {
-                preference(
-                    key = "logout",
-                    title = {
-                        Text(
-                            text = "退出登录",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            color = Color.Red,
-                        )
-                    },
-                    onClick = {
-                        showLogoutDialog.value = true
-                    }
-                )
-             }
 
             item("bottom") {
                 Spacer(
@@ -342,7 +334,8 @@ private fun SettingPageContent(
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

@@ -12,6 +12,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 
 /**
  * 底部 Tab 多 backstack 导航状态。
@@ -76,12 +77,35 @@ class BottomBarBackStack(
         // 用 key::class 比较，兼容 class（非 object）的 top-level 路由
         val topLevelKey = backStacks.keys.firstOrNull { it::class == key::class }
         if (topLevelKey != null) {
-            topLevelRoute = topLevelKey
+            if (topLevelRoute == topLevelKey) {
+                // 已处于该 Tab：pop 回该 Tab 根部（标准底部导航行为），
+                // 例如搜索结果页点"继续搜索"应回到搜索输入页
+                val cur = current
+                while (cur.size > 1) {
+                    cur.removeLastOrNull()
+                }
+            } else {
+                topLevelRoute = topLevelKey
+            }
         } else {
             val cur = current
-            if (cur.lastOrNull()?.takeIf { it::class == key::class } == null) {
+            // 用 equals（而非 class）判断栈顶：data class 页面（如不同 id 的
+            // VideoDetailPage）应在栈顶追加新实例，而不是被同类判断跳过
+            if (cur.lastOrNull() != key) {
                 cur.add(key)
             }
+        }
+    }
+
+    /**
+     * 把 [key] 追加到当前 Tab 栈顶（不清空已有栈）。
+     * 用于"继续搜索"等场景：进入搜索输入页时保留当前搜索结果页，
+     * 返回时能回到原来的页面。
+     */
+    fun pushToCurrent(key: NavKey) {
+        val cur = current
+        if (cur.lastOrNull() != key) {
+            cur.add(key)
         }
     }
 }
@@ -116,7 +140,13 @@ fun rememberBottomBarBackStack(
 fun BottomBarBackStack.decorateEntries(
     entryProvider: (NavKey) -> NavEntry<NavKey>,
 ): List<NavEntry<NavKey>> {
-    val decorators = listOf(rememberSaveableStateHolderNavEntryDecorator<NavKey>())
+    // 每个 NavEntry 需要独立的 ViewModelStore（按 entry 隔离 ViewModel），
+    // 否则同类页面（如不同用户的关注/粉丝页）会复用同一个 ViewModel，
+    // 导致打开新页面时仍显示上一个用户的数据。
+    val decorators = listOf(
+        rememberViewModelStoreNavEntryDecorator<NavKey>(),
+        rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
+    )
     // 所有在用 Tab：startRoute 始终保留，加上当前 Tab（若不同）
     val inUseRoutes = if (topLevelRoute == startRoute) {
         listOf(startRoute)
@@ -131,4 +161,25 @@ fun BottomBarBackStack.decorateEntries(
             entryProvider = entryProvider,
         )
     }
+}
+
+/**
+ * 装饰指定 Tab 的 backstack 为 [NavEntry] 列表，供该 Tab 独立的
+ * [androidx.navigation3.ui.NavDisplay] 使用（Pager 常驻场景）。
+ */
+@Composable
+fun BottomBarBackStack.entriesFor(
+    route: NavKey,
+    entryProvider: (NavKey) -> NavEntry<NavKey>,
+): List<NavEntry<NavKey>> {
+    val decorators = listOf(
+        rememberViewModelStoreNavEntryDecorator<NavKey>(),
+        rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
+    )
+    val stack = backStacks.getValue(route)
+    return rememberDecoratedNavEntries(
+        backStack = stack,
+        entryDecorators = decorators,
+        entryProvider = entryProvider,
+    )
 }

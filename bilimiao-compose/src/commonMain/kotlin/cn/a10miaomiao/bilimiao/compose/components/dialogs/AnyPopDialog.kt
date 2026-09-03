@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 @Composable
@@ -60,11 +59,7 @@ fun AnyPopDialog(
 
     Dialog(
         onDismissRequest = handleBackPress,
-        properties = DialogProperties(
-            dismissOnBackPress = properties.dismissOnBackPress,
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false,
-        ),
+        properties = fullScreenDialogProperties(properties.dismissOnBackPress),
     ) {
         LaunchedEffect(isAnimateLayout) {
             if (!isAnimateLayout) {

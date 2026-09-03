@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -19,9 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import bilibili.app.dynamic.v2.DynamicGRPC
@@ -45,6 +51,7 @@ import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicVideoContentInfo
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicVideoInfo
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicViewModel
+import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicDetailPage
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.store.FilterStore
 import kotlinx.coroutines.Dispatchers
@@ -144,16 +151,13 @@ class DynamicAllListContenttViewModel(
     }
 
     fun toDetailPage(item: DynamicItem) {
-        val extend = item.extend ?: return
-        val toUrl = extend.cardUrl
-        try {
-            pageNavigation.navigateByUri(toUrl)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // 统一进入动态详情页（与点击评论按键一致），不再按 cardUrl 跳转
+        val dynId = item.extend?.dynIdStr ?: return
+        pageNavigation.navigate(DynamicDetailPage(id = dynId))
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DynamicAllListContent(
     dynamicViewModel: DynamicViewModel,
@@ -193,22 +197,31 @@ fun DynamicAllListContent(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = windowInsets.addPaddingValues(
-                addTop = -windowInsets.topDp.dp + 10.dp,
-                addBottom = 10.dp
+                addTop = -windowInsets.topDp.dp + 12.dp,
+                addBottom = 12.dp
             ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
-                DynamicItemCard(
-                    modifier = Modifier
-                        .widthIn(max = 600.dp)
-                        .fillMaxWidth(),
-                    item = it,
-                    onClick = {
-                        viewModel.toDetailPage(it)
-                    },
-                )
+            itemsIndexed(
+                list,
+                key = { index, item -> item.extend?.dynIdStr ?: index },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
+                    DynamicItemCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        item = item,
+                        onClick = {
+                            viewModel.toDetailPage(item)
+                        },
+                    )
+                }
             }
             item() {
                 ListStateBox(

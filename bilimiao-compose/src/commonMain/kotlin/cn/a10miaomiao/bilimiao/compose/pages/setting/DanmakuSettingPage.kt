@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import cn.a10miaomiao.bilimiao.compose.common.preference.ProvidePreferenceLocals
 import cn.a10miaomiao.bilimiao.compose.common.preference.preference
-import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceCategory
+import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceGroup
 import cn.a10miaomiao.bilimiao.compose.common.preference.switchPreference
 import org.kodein.di.DI
 import org.kodein.di.DIAware
@@ -34,6 +34,9 @@ import org.kodein.di.instance
 
 @Serializable
 class DanmakuSettingPage : ComposePage {
+
+    // 与发送弹幕弹窗保持一致：不显示标题栏（关闭按钮 + 标题）
+    override val showBottomSheetTitleBar: Boolean = false
 
     @Composable
     override fun Content() {
@@ -118,102 +121,104 @@ private fun DanmakuSettingPageContent(
                     modifier = Modifier.height(windowInsets.topDp.dp)
                 )
             }
-            preferenceCategory(
+            preferenceGroup(
                 key = "0",
                 title = {
                     Text("基础设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.DanmakuEnable.name,
-                title = {
-                    Text("启用弹幕")
-                },
-                summary = {
-                    if (it) {
-                        Text("已启用")
-                    } else {
-                        Text("未启用，启用后才能进行其它设置")
-                    }
-                },
-                defaultValue = true,
-            )
-            switchPreference(
-                key = SettingPreferences.DanmakuSysFont.name,
-                enabled = {
-                    danmakuEnable
-                },
-                title = {
-                    Text("弹幕使用系统字体")
-                },
-                summary = {
-                    Text("修改后需重启APP生效")
-                },
-                defaultValue = true,
-            )
+            ) {
+                switchPreference(
+                    key = SettingPreferences.DanmakuEnable.name,
+                    title = {
+                        Text("启用弹幕")
+                    },
+                    summary = {
+                        if (it) {
+                            Text("已启用")
+                        } else {
+                            Text("未启用，启用后才能进行其它设置")
+                        }
+                    },
+                    defaultValue = true,
+                )
+                switchPreference(
+                    key = SettingPreferences.DanmakuSysFont.name,
+                    enabled = {
+                        danmakuEnable
+                    },
+                    title = {
+                        Text("弹幕使用系统字体")
+                    },
+                    summary = {
+                        Text("修改后需重启APP生效")
+                    },
+                    defaultValue = true,
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "1",
                 title = {
                     Text("显示设置")
                 }
-            )
-            preference(
-                key = "默认",
-                enabled = danmakuEnable,
-                title = {
-                    Text("默认显示设置")
-                },
-                summary = {
-                    Text("未独立设置时，使用默认设置")
-                },
-                onClick = viewModel::defaultDisplayClick
-            )
-            preference(
-                key = "小屏模式",
-                enabled = danmakuEnable,
-                title = {
-                    Text("小屏模式显示设置")
-                },
-                summary = {
-                      if (danmakuEnableArr[1]) {
-                          Text("已启用独立设置")
-                      } else {
-                          Text("未启用独立设置，使用默认设置")
-                      }
-                },
-                onClick = viewModel::smallModeDisplayClick
-            )
-            preference(
-                key = "全屏模式",
-                enabled = danmakuEnable,
-                title = {
-                    Text("全屏模式显示设置")
-                },
-                summary = {
-                    if (danmakuEnableArr[2]) {
-                        Text("已启用独立设置")
-                    } else {
-                        Text("未启用独立设置，使用默认设置")
-                    }
-                },
-                onClick = viewModel::fullModeDisplayClick
-            )
-            preference(
-                key = "小窗模式",
-                enabled = danmakuEnable,
-                title = {
-                    Text("小窗(画中画)模式显示设置")
-                },
-                summary = {
-                    if (danmakuEnableArr[3]) {
-                        Text("已启用独立设置")
-                    } else {
-                        Text("未启用独立设置，使用默认设置")
-                    }
-                },
-                onClick = viewModel::pipModeDisplayClick
-            )
+            ) {
+                preference(
+                    key = "默认",
+                    enabled = danmakuEnable,
+                    title = {
+                        Text("默认显示设置")
+                    },
+                    summary = {
+                        Text("未独立设置时，使用默认设置")
+                    },
+                    onClick = viewModel::defaultDisplayClick
+                )
+                preference(
+                    key = "小屏模式",
+                    enabled = danmakuEnable,
+                    title = {
+                        Text("小屏模式显示设置")
+                    },
+                    summary = {
+                          if (danmakuEnableArr[1]) {
+                              Text("已启用独立设置")
+                          } else {
+                              Text("未启用独立设置，使用默认设置")
+                          }
+                    },
+                    onClick = viewModel::smallModeDisplayClick
+                )
+                preference(
+                    key = "全屏模式",
+                    enabled = danmakuEnable,
+                    title = {
+                        Text("全屏模式显示设置")
+                    },
+                    summary = {
+                        if (danmakuEnableArr[2]) {
+                            Text("已启用独立设置")
+                        } else {
+                            Text("未启用独立设置，使用默认设置")
+                        }
+                    },
+                    onClick = viewModel::fullModeDisplayClick
+                )
+                preference(
+                    key = "小窗模式",
+                    enabled = danmakuEnable,
+                    title = {
+                        Text("小窗(画中画)模式显示设置")
+                    },
+                    summary = {
+                        if (danmakuEnableArr[3]) {
+                            Text("已启用独立设置")
+                        } else {
+                            Text("未启用独立设置，使用默认设置")
+                        }
+                    },
+                    onClick = viewModel::pipModeDisplayClick
+                )
+            }
             item("bottom") {
                 Spacer(
                     modifier = Modifier.height(

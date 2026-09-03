@@ -3,16 +3,17 @@ package cn.a10miaomiao.bilimiao.compose.pages.user.content
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -26,6 +27,8 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.dyanmic.DynamicItemCard
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
@@ -116,6 +119,7 @@ private class UserDynamicListContentViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UserDynamicListContent(
     vmid: String,
@@ -148,23 +152,29 @@ fun UserDynamicListContent(
         modifier = Modifier.fillMaxSize(),
         state = listState,
         contentPadding = windowInsets.addPaddingValues(
-            addTop = -windowInsets.topDp.dp + 10.dp,
-            addBottom = 10.dp
+            addTop = -windowInsets.topDp.dp + 12.dp,
+            addBottom = 12.dp,
         ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
-        items(list) {
-            DynamicItemCard(
-                modifier = Modifier
-                    .widthIn(max = 600.dp)
-                    .fillMaxWidth(),
-                item = it,
-                isJumpToUser = false,
-                onClick = {
-                    viewModel.toDetailPage(it)
-                },
-            )
+        itemsIndexed(list) { index, item ->
+            CompositionLocalProvider(
+                LocalListItemShapes provides segmentedItemShapes(
+                    index,
+                    list.size,
+                ),
+            ) {
+                DynamicItemCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    item = item,
+                    isJumpToUser = false,
+                    onClick = {
+                        viewModel.toDetailPage(item)
+                    },
+                )
+            }
         }
         item {
             ListStateBox(

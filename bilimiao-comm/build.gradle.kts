@@ -13,13 +13,16 @@ kotlin {
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
     androidTarget {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         }
     }
     jvm("desktop")
 
     sourceSets {
         commonMain {
+            // KMP 的 commonMain 引用 proto 生成的类（如 bilibili.*），
+            // 固定使用 debug 变体的生成目录；其他变体（release/benchmark）复用同一份，
+            // 避免每个变体各生成一份造成重复声明（Redeclaration）。
             kotlin.srcDir("build/generated/source/proto/debug/pbandk")
             dependencies {
                 implementation(libs.kotlinx.coroutines.core)
@@ -102,8 +105,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
     namespace = "com.a10miaomiao.bilimiao.comm"
 
@@ -137,6 +140,12 @@ protobuf {
             "$generatorModule.jar"
         ).toFile()
         all().forEach { task ->
+            // 只生成 debug 变体的 proto 代码（任务名如 generateDebugProto），
+            // release/benchmark 复用 debug 生成
+            if (!task.name.contains("Debug")) {
+                task.enabled = false
+                return@forEach
+            }
             task.plugins {
                 id("pbandk") {
                     if (!generatorJarFile.exists()) {

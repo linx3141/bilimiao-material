@@ -2,7 +2,6 @@ package cn.a10miaomiao.bilimiao.compose
 
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import cn.a10miaomiao.bilimiao.compose.base.PageSearchMethod
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.max
@@ -14,6 +13,18 @@ class StartViewState(
 
     val playerState = PlayerState(fullScreenPlayer)
 
+    /**
+     * 当前可见的视频详情页对应的视频 aid。
+     * 由 VideoDetailViewModel 在详情数据加载成功后注册、页面离开组合时注销，
+     * 用于判断当前页面是否为正在播放视频的详情页（"忽略返回手势"关闭时的联动逻辑）。
+     */
+    private val _currentVideoPageAid = mutableStateOf<String?>(null)
+    var currentVideoPageAid: String?
+        get() = _currentVideoPageAid.value
+        set(value) {
+            _currentVideoPageAid.value = value
+        }
+
     private val _drawerState = mutableStateOf(DRAWER_STATE_COLLAPSED)
     val drawerState get() = _drawerState.value
 
@@ -22,19 +33,6 @@ class StartViewState(
 
     private val _touchStart = mutableFloatStateOf(0f)
     val touchStart get() = _touchStart.floatValue
-    private val _showSearchDialog = mutableStateOf(false)
-    val showSearchDialog get() = _showSearchDialog.value
-
-    private val _searchInitKeyword = mutableStateOf("")
-    val searchInitKeyword get() = _searchInitKeyword.value
-    private val _searchInitMode = mutableStateOf(0)
-    val searchInitMode get() = _searchInitMode.value
-
-    private val _pageSearchMethod = mutableStateOf<PageSearchMethod?>(null)
-    val pageSearchMethod get() = _pageSearchMethod.value
-
-    private val _searchAnimation = mutableStateOf(false)
-    val searchAnimation get() = _searchAnimation.value
 
     fun setTouchStartTop(topHeightPx: Float, windowHeightPx: Int, density: Float) {
         var topHeightDp = topHeightPx / density
@@ -42,22 +40,6 @@ class StartViewState(
         topHeightDp = min(topHeightDp - 200, windowHeightDp - 400)
         topHeightDp = max(topHeightDp, 0f)
         _touchStart.value = topHeightDp
-    }
-
-    fun setPageSearchMethod(method: PageSearchMethod?) {
-        _pageSearchMethod.value = method
-    }
-
-    fun openSearchDialog(keyword: String, mode: Int, animation: Boolean) {
-        _searchAnimation.value = animation
-        _searchInitKeyword.value = keyword
-        _searchInitMode.value = mode
-        _showSearchDialog.value = true
-    }
-
-    fun closeSearchDialog() {
-        _searchAnimation.value = true
-        _showSearchDialog.value = false
     }
 
     fun openDrawer() {

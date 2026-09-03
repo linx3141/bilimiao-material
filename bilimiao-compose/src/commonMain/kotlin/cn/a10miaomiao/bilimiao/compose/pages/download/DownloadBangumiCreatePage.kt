@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toColorInt
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.mapPreferences
@@ -289,23 +292,34 @@ internal class DownloadBangumiCreatePageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun EpisodeItem(
+    modifier: Modifier = Modifier,
     episode: EpisodeInfo,
     enabled: Boolean,
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
 ) {
+    val segmentedShapes = LocalListItemShapes.current
     Box(
-        modifier = Modifier.padding(
-            vertical = 5.dp,
-            horizontal = 10.dp,
-        )
+        modifier = if (segmentedShapes == null) {
+            modifier.padding(
+                vertical = 5.dp,
+                horizontal = 10.dp,
+            )
+        } else {
+            modifier
+        },
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.background
+            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (segmentedShapes != null) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.background
+            },
         ) {
             Row(
                 modifier = Modifier
@@ -356,6 +370,7 @@ internal fun EpisodeItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun DownloadBangumiCreatePageContent(
     viewModel: DownloadBangumiCreatePageViewModel,
@@ -391,23 +406,31 @@ internal fun DownloadBangumiCreatePageContent(
                     .padding(
                         start = windowInsets.leftDp.dp,
                         end = windowInsets.rightDp.dp,
-                    )
+                    ),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 item("top") {
                     Spacer(modifier = Modifier.height(windowInsets.topDp.dp))
                 }
-                items(list.size, { it }) {
-                    val item = list[it]
+                itemsIndexed(list) { index, item ->
                     val isEnabled = !downloadedSet.contains(item.id)
                     val isChecked = if (isEnabled) {
                         checkedSet.contains(item.id)
                     } else { true }
-                    EpisodeItem(
-                        episode = item,
-                        enabled = isEnabled,
-                        checked = isChecked,
-                        onCheckedChange = { viewModel.checkedChange(item.id) }
-                    )
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            list.size,
+                        ),
+                    ) {
+                        EpisodeItem(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            episode = item,
+                            enabled = isEnabled,
+                            checked = isChecked,
+                            onCheckedChange = { viewModel.checkedChange(item.id) }
+                        )
+                    }
                 }
                 item("bottom") {
                     Row(

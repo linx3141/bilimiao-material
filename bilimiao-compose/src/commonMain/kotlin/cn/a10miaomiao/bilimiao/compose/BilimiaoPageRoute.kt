@@ -1,5 +1,11 @@
 package cn.a10miaomiao.bilimiao.compose
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.pages.BlankPage
@@ -19,11 +25,13 @@ import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadListPage
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicOpusPage
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicPage
+import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicUpperPage
 import cn.a10miaomiao.bilimiao.compose.pages.filter.FilterSettingPage
 import cn.a10miaomiao.bilimiao.compose.pages.home.HomePage
 import cn.a10miaomiao.bilimiao.compose.pages.lyric.LyricPage
 import cn.a10miaomiao.bilimiao.compose.pages.message.MessagePage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.HistoryPage
+import cn.a10miaomiao.bilimiao.compose.pages.mine.HistorySearchInputPage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.MyBangumiPage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.MyFollowPage
 import cn.a10miaomiao.bilimiao.compose.pages.mine.WatchLaterPage
@@ -31,10 +39,11 @@ import cn.a10miaomiao.bilimiao.compose.pages.player.SendDanmakuPage
 import cn.a10miaomiao.bilimiao.compose.pages.playlist.PlayListPage
 import cn.a10miaomiao.bilimiao.compose.pages.rank.RankPage
 import cn.a10miaomiao.bilimiao.compose.pages.search.SearchResultPage
+import cn.a10miaomiao.bilimiao.compose.pages.search.SearchPage
+import cn.a10miaomiao.bilimiao.compose.pages.mine.ProfilePage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.AboutPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.DanmakuDisplaySettingPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.DanmakuSettingPage
-import cn.a10miaomiao.bilimiao.compose.pages.setting.FlagsSettingPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.HomeSettingPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.ProxySettingPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.SettingPage
@@ -45,6 +54,7 @@ import cn.a10miaomiao.bilimiao.compose.pages.setting.proxy.EditProxyServerPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.proxy.SelectProxyServerPage
 import cn.a10miaomiao.bilimiao.compose.pages.time.TimeRegionDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.time.TimeSettingPage
+import cn.a10miaomiao.bilimiao.compose.pages.user.BlackListPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.SearchFollowPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserBangumiPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserFavouriteDetailPage
@@ -54,9 +64,14 @@ import cn.a10miaomiao.bilimiao.compose.pages.user.UserLikeArchivePage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserMedialistPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSeasonDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpacePage
+import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpaceSearchInputPage
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpaceSearchPage
+import cn.a10miaomiao.bilimiao.compose.pages.user.UserFansPage
 import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.video.VideoPagesPage
+import cn.a10miaomiao.bilimiao.compose.pages.video.VideoCoinPage
+import cn.a10miaomiao.bilimiao.compose.pages.video.VideoAddFavoritePage
+import cn.a10miaomiao.bilimiao.compose.pages.video.VideoDownloadPage
 import cn.a10miaomiao.bilimiao.compose.pages.web.WebPage
 import cn.a10miaomiao.bilimiao.compose.pages.setting.ThemeSettingPage
 import androidx.navigation3.runtime.NavKey
@@ -70,100 +85,126 @@ object BilimiaoPageRoute {
 
     fun entries(scope: EntryProviderScope<NavKey>) {
         // 通用
-        scope.entry<BlankPage> { it.Content() }
-        scope.entry<TestPage> { it.Content() }
+        scope.entry<BlankPage> { PageSurface { it.Content() } }
+        scope.entry<TestPage> { PageSurface { it.Content() } }
 
         // home
-        scope.entry<HomePage> { it.Content() }
+        scope.entry<HomePage> { PageSurface { it.Content() } }
 
         // search
-        scope.entry<SearchResultPage> { it.Content() }
+        scope.entry<SearchResultPage> { PageSurface { it.Content() } }
+        scope.entry<SearchPage> { PageSurface { it.Content() } }
+        scope.entry<ProfilePage> { PageSurface { it.Content() } }
 
         // auth
-        scope.entry<LoginPage> { it.Content() }
-        scope.entry<QrCodeLoginPage> { it.Content() }
-        scope.entry<TelVerifyPage> { it.Content() }
-        scope.entry<H5LoginPage> { it.Content() }
-        scope.entry<SMSLoginPage> { it.Content() }
+        scope.entry<LoginPage> { PageSurface { it.Content() } }
+        scope.entry<QrCodeLoginPage> { PageSurface { it.Content() } }
+        scope.entry<TelVerifyPage> { PageSurface { it.Content() } }
+        scope.entry<H5LoginPage> { PageSurface { it.Content() } }
+        scope.entry<SMSLoginPage> { PageSurface { it.Content() } }
 
         // video
-        scope.entry<VideoDetailPage> { it.Content() }
-        scope.entry<VideoPagesPage> { it.Content() }
+        scope.entry<VideoDetailPage> { PageSurface { it.Content() } }
+        scope.entry<VideoPagesPage> { PageSurface { it.Content() } }
+        scope.entry<VideoCoinPage> { PageSurface { it.Content() } }
+        scope.entry<VideoAddFavoritePage> { PageSurface { it.Content() } }
+        scope.entry<VideoDownloadPage> { PageSurface { it.Content() } }
 
         // bangumi
-        scope.entry<BangumiDetailPage> { it.Content() }
-        scope.entry<BangumiEpisodesPage> { it.Content() }
+        scope.entry<BangumiDetailPage> { PageSurface { it.Content() } }
+        scope.entry<BangumiEpisodesPage> { PageSurface { it.Content() } }
 
         // dynamic
-        scope.entry<DynamicPage> { it.Content() }
-        scope.entry<DynamicDetailPage> { it.Content() }
-        scope.entry<DynamicOpusPage> { it.Content() }
+        scope.entry<DynamicPage> { PageSurface { it.Content() } }
+        scope.entry<DynamicDetailPage> { PageSurface { it.Content() } }
+        scope.entry<DynamicOpusPage> { PageSurface { it.Content() } }
+        scope.entry<DynamicUpperPage> { PageSurface { it.Content() } }
 
         // rank
-        scope.entry<RankPage> { it.Content() }
+        scope.entry<RankPage> { PageSurface { it.Content() } }
 
         // download
-        scope.entry<DownloadListPage> { it.Content() }
-        scope.entry<DownloadDetailPage> { it.Content() }
-        scope.entry<DownloadBangumiCreatePage> { it.Content() }
+        scope.entry<DownloadListPage> { PageSurface { it.Content() } }
+        scope.entry<DownloadDetailPage> { PageSurface { it.Content() } }
+        scope.entry<DownloadBangumiCreatePage> { PageSurface { it.Content() } }
 
         // filter
-        scope.entry<FilterSettingPage> { it.Content() }
+        scope.entry<FilterSettingPage> { PageSurface { it.Content() } }
 
         // message
-        scope.entry<MessagePage> { it.Content() }
+        scope.entry<MessagePage> { PageSurface { it.Content() } }
 
         // player
-        scope.entry<SendDanmakuPage> { it.Content() }
+        scope.entry<SendDanmakuPage> { PageSurface { it.Content() } }
 
         // playlist
-        scope.entry<PlayListPage> { it.Content() }
+        scope.entry<PlayListPage> { PageSurface { it.Content() } }
 
         // setting
-        scope.entry<SettingPage> { it.Content() }
-        scope.entry<HomeSettingPage> { it.Content() }
-        scope.entry<ThemeSettingPage> { it.Content() }
-        scope.entry<VideoSettingPage> { it.Content() }
-        scope.entry<AutoStopTimerPage> { it.Content() }
-        scope.entry<DanmakuSettingPage> { it.Content() }
-        scope.entry<DanmakuDisplaySettingPage> { it.Content() }
-        scope.entry<FlagsSettingPage> { it.Content() }
-        scope.entry<ProxySettingPage> { it.Content() }
-        scope.entry<AddProxyServerPage> { it.Content() }
-        scope.entry<EditProxyServerPage> { it.Content() }
-        scope.entry<SelectProxyServerPage> { it.Content() }
-        scope.entry<AboutPage> { it.Content() }
+        scope.entry<SettingPage> { PageSurface { it.Content() } }
+        scope.entry<HomeSettingPage> { PageSurface { it.Content() } }
+        scope.entry<ThemeSettingPage> { PageSurface { it.Content() } }
+        scope.entry<VideoSettingPage> { PageSurface { it.Content() } }
+        scope.entry<AutoStopTimerPage> { PageSurface { it.Content() } }
+        scope.entry<DanmakuSettingPage> { PageSurface { it.Content() } }
+        scope.entry<DanmakuDisplaySettingPage> { PageSurface { it.Content() } }
+        scope.entry<ProxySettingPage> { PageSurface { it.Content() } }
+        scope.entry<AddProxyServerPage> { PageSurface { it.Content() } }
+        scope.entry<EditProxyServerPage> { PageSurface { it.Content() } }
+        scope.entry<SelectProxyServerPage> { PageSurface { it.Content() } }
+        scope.entry<AboutPage> { PageSurface { it.Content() } }
 
         // time
-        scope.entry<TimeSettingPage> { it.Content() }
-        scope.entry<TimeRegionDetailPage> { it.Content() }
+        scope.entry<TimeSettingPage> { PageSurface { it.Content() } }
+        scope.entry<TimeRegionDetailPage> { PageSurface { it.Content() } }
 
         // mine
-        scope.entry<MyBangumiPage> { it.Content() }
-        scope.entry<MyFollowPage> { it.Content() }
-        scope.entry<HistoryPage> { it.Content() }
-        scope.entry<WatchLaterPage> { it.Content() }
+        scope.entry<MyBangumiPage> { PageSurface { it.Content() } }
+        scope.entry<MyFollowPage> { PageSurface { it.Content() } }
+        scope.entry<HistoryPage> { PageSurface { it.Content() } }
+        scope.entry<HistorySearchInputPage> { PageSurface { it.Content() } }
+        scope.entry<WatchLaterPage> { PageSurface { it.Content() } }
 
         // user
-        scope.entry<UserSpacePage> { it.Content() }
-        scope.entry<UserSpaceSearchPage> { it.Content() }
-        scope.entry<UserFollowPage> { it.Content() }
-        scope.entry<SearchFollowPage> { it.Content() }
-        scope.entry<UserBangumiPage> { it.Content() }
-        scope.entry<UserLikeArchivePage> { it.Content() }
-        scope.entry<UserFavouritePage> { it.Content() }
-        scope.entry<UserFavouriteDetailPage> { it.Content() }
-        scope.entry<UserSeasonDetailPage> { it.Content() }
-        scope.entry<UserMedialistPage> { it.Content() }
+        scope.entry<UserSpacePage> { PageSurface { it.Content() } }
+        scope.entry<UserFansPage> { PageSurface { it.Content() } }
+        scope.entry<BlackListPage> { PageSurface { it.Content() } }
+        scope.entry<UserSpaceSearchInputPage> { PageSurface { it.Content() } }
+        scope.entry<UserSpaceSearchPage> { PageSurface { it.Content() } }
+        scope.entry<UserFollowPage> { PageSurface { it.Content() } }
+        scope.entry<SearchFollowPage> { PageSurface { it.Content() } }
+        scope.entry<UserBangumiPage> { PageSurface { it.Content() } }
+        scope.entry<UserLikeArchivePage> { PageSurface { it.Content() } }
+        scope.entry<UserFavouritePage> { PageSurface { it.Content() } }
+        scope.entry<UserFavouriteDetailPage> { PageSurface { it.Content() } }
+        scope.entry<UserSeasonDetailPage> { PageSurface { it.Content() } }
+        scope.entry<UserMedialistPage> { PageSurface { it.Content() } }
 
         // community
-        scope.entry<MainReplyListPage> { it.Content() }
-        scope.entry<ReplyDetailListPage> { it.Content() }
+        scope.entry<MainReplyListPage> { PageSurface { it.Content() } }
+        scope.entry<ReplyDetailListPage> { PageSurface { it.Content() } }
 
         // lyric
-        scope.entry<LyricPage> { it.Content() }
+        scope.entry<LyricPage> { PageSurface { it.Content() } }
 
         // web
-        scope.entry<WebPage> { it.Content() }
+        scope.entry<WebPage> { PageSurface { it.Content() } }
+    }
+}
+
+/**
+ * 页面统一背景：避免页面内容加载中/过渡期间背景透明，
+ * 所有页面在进入/返回动画时都有一层 surface 兜底。
+ */
+@Composable
+private fun PageSurface(
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        content()
     }
 }

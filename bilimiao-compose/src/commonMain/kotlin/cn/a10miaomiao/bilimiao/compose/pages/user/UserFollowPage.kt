@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Add
@@ -24,6 +25,8 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.user.UserInfoCard
@@ -101,6 +104,9 @@ private class UserFollowPageViewModel(
         pageNum: Int = list.pageNum
     ) = viewModelScope.launch(Dispatchers.IO) {
         try {
+            if (pageNum == 1) {
+                list.reset()
+            }
             list.loading.value = true
             val res = BiliApiService.userRelationApi
                 .followings(
@@ -209,6 +215,7 @@ private class UserFollowPageViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UserFollowPageContent(
     viewModel: UserFollowPageViewModel,
@@ -268,11 +275,12 @@ private fun UserFollowPageContent(
         onRefresh = { viewModel.refresh() },
     ) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(400.dp),
+            columns = GridCells.Adaptive(300.dp),
             modifier = Modifier.padding(
                 start = windowInsets.leftDp.dp,
                 end = windowInsets.rightDp.dp,
-            )
+            ),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
 
             item(
@@ -283,12 +291,19 @@ private fun UserFollowPageContent(
                 Spacer(modifier = Modifier.height(windowInsets.topDp.dp))
             }
 
-            items(list.size, { list[it].mid }) {
-                val item = list[it]
-                Box(
-                    modifier = Modifier.padding(5.dp),
+            itemsIndexed(
+                list,
+                key = { _, item -> item.mid },
+                span = { _, _ -> GridItemSpan(maxLineSpan) },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
                 ) {
                     UserInfoCard(
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         name = item.uname,
                         face = item.face,
                         sign = item.sign,
@@ -297,7 +312,7 @@ private fun UserFollowPageContent(
                         }
                     ) {
                         Button(
-                            onClick = { viewModel.attention(it) },
+                            onClick = { viewModel.attention(index) },
                             shape = MaterialTheme.shapes.small,
                             contentPadding = PaddingValues(
                                 vertical = 4.dp,
@@ -312,7 +327,8 @@ private fun UserFollowPageContent(
                             enabled = isLogin,
                             colors = if (item.isFollowing) {
                                 ButtonDefaults.buttonColors(
-                                    containerColor = Color.Gray
+                                    containerColor = MaterialTheme.colorScheme.onPrimary,
+                                    contentColor = MaterialTheme.colorScheme.primary,
                                 )
                             } else {
                                 ButtonDefaults.buttonColors()

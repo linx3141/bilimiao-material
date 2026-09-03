@@ -268,7 +268,7 @@ class CoverViewModel(
                 override fun onLoadFailed(
                     e: GlideException?,
                     model: Any?,
-                    target: Target<Bitmap>?,
+                    target: Target<Bitmap>,
                     isFirstResource: Boolean
                 ): Boolean {
                     activity.runOnUiThread {
@@ -278,10 +278,10 @@ class CoverViewModel(
                 }
 
                 override fun onResourceReady(
-                    resource: Bitmap?,
-                    model: Any?,
-                    target: Target<Bitmap>?,
-                    dataSource: DataSource?,
+                    resource: Bitmap,
+                    model: Any,
+                    target: Target<Bitmap>,
+                    dataSource: DataSource,
                     isFirstResource: Boolean
                 ): Boolean {
                     activity.runOnUiThread {

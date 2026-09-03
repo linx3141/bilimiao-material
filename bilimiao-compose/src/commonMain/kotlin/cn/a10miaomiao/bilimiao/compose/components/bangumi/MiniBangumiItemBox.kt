@@ -11,16 +11,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cn.a10miaomiao.bilimiao.compose.components.miao.MiaoCard
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 
@@ -32,38 +32,44 @@ fun MiniBangumiItemBox(
     desc: String? = null,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = modifier.aspectRatio(560f / 746f)
-            .clip(RoundedCornerShape(5.dp))
-            .clickable(onClick = onClick)
+    MiaoCard(
+        modifier = modifier,
+        onClick = onClick,
     ) {
-        AsyncImage(
-            model = UrlUtil.autoHttps(cover) + "@560w_746h",
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black),
-                    )
-                )
-                .padding(5.dp)
-                .align(Alignment.BottomStart)
+                .padding(8.dp),
         ) {
+            // 封面：圆角缩略图（与外面视频列表一致），不填满卡片边缘
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(560f / 746f)
+                    .clip(RoundedCornerShape(12.dp)),
+            ) {
+                AsyncImage(
+                    model = UrlUtil.autoHttps(cover) + "@560w_746h",
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = title,
-                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleSmall,
             )
             if (desc != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = desc,
-                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
             }

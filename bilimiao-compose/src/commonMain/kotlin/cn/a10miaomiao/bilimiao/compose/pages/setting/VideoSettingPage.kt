@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
@@ -21,18 +22,19 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceFlow
-import cn.a10miaomiao.bilimiao.compose.components.preference.customSetsPreference
-import cn.a10miaomiao.bilimiao.compose.components.preference.multiSelectIntPreference
-import cn.a10miaomiao.bilimiao.compose.components.preference.sliderIntPreference
+import cn.a10miaomiao.bilimiao.compose.components.preference.CustomSetsPreference
+import cn.a10miaomiao.bilimiao.compose.components.preference.SliderIntPreference
 import com.a10miaomiao.bilimiao.comm.datastore.SettingConstants
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.appDataStore
 import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import kotlinx.serialization.Serializable
 import cn.a10miaomiao.bilimiao.compose.common.preference.ProvidePreferenceLocals
+import cn.a10miaomiao.bilimiao.compose.common.preference.MultiSelectListPreference
 import cn.a10miaomiao.bilimiao.compose.common.preference.listPreference
 import cn.a10miaomiao.bilimiao.compose.common.preference.preference
-import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceCategory
+import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceGroup
+import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceState
 import cn.a10miaomiao.bilimiao.compose.common.preference.switchPreference
 import org.kodein.di.compose.rememberInstance
 import org.kodein.di.DI
@@ -41,6 +43,9 @@ import org.kodein.di.instance
 
 @Serializable
 class VideoSettingPage : ComposePage {
+
+    // 与发送弹幕弹窗保持一致：不显示标题栏（关闭按钮 + 标题）
+    override val showBottomSheetTitleBar: Boolean = false
 
     @Composable
     override fun Content() {
@@ -158,241 +163,319 @@ private fun VideoSettingPageContent(
                     modifier = Modifier.height(windowInsets.topDp.dp)
                 )
             }
-            preferenceCategory(
+            preferenceGroup(
                 key = "player",
                 title = {
                     Text("播放器设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerBackground.name,
-                title = {
-                    Text("后台播放")
-                },
-                summary = {
-                    Text("遇到困难时，不要停下来.")
-                },
-                defaultValue = true,
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerAudioFocus.name,
-                title = {
-                    Text("占用音频焦点")
-                },
-                summary = {
-                    Text("关闭后可以与其它APP同时播放")
-                },
-                defaultValue = true,
-            )
+            ) {
+                switchPreference(
+                    key = SettingPreferences.PlayerBackground.name,
+                    title = {
+                        Text("后台播放")
+                    },
+                    summary = {
+                        Text("遇到困难时，不要停下来.")
+                    },
+                    defaultValue = true,
+                )
+                switchPreference(
+                    key = SettingPreferences.PlayerAudioFocus.name,
+                    title = {
+                        Text("占用音频焦点")
+                    },
+                    summary = {
+                        Text("关闭后可以与其它APP同时播放")
+                    },
+                    defaultValue = true,
+                )
+                switchPreference(
+                    key = SettingPreferences.PlayerIgnoreBackGesture.name,
+                    title = {
+                        Text("忽略返回手势")
+                    },
+                    summary = {
+                        Text("开启后，返回手势会跳过播放器")
+                    },
+                    defaultValue = false,
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "source",
                 title = {
                     Text("视频源设置")
                 }
-            )
-            listPreference(
-                key = SettingPreferences.PlayerFnval.name,
-                title = {
-                    Text("视频格式选择")
-                },
-                summary = {
-                    Text("不能播放时，换个格式试试吧")
-                },
-                defaultValue = SettingConstants.PLAYER_FNVAL_DASH,
-                values = viewModel.fnvalSelectionList,
-                valueToText = viewModel::fnvalSelectionName
-            )
-            preference(
-                key = SettingPreferences.PlayerProxy.name,
-                title = {
-                    Text("区域限制设置")
-                },
-                summary = {
-                    Text("滴，出差卡")
-                },
-                onClick = viewModel::proxyClick
-            )
+            ) {
+                listPreference(
+                    key = SettingPreferences.PlayerFnval.name,
+                    title = {
+                        Text("视频格式选择")
+                    },
+                    summary = {
+                        Text("不能播放时，换个格式试试吧")
+                    },
+                    defaultValue = SettingConstants.PLAYER_FNVAL_DASH,
+                    values = viewModel.fnvalSelectionList,
+                    valueToText = viewModel::fnvalSelectionName
+                )
+                preference(
+                    key = SettingPreferences.PlayerProxy.name,
+                    title = {
+                        Text("区域限制设置")
+                    },
+                    summary = {
+                        Text("滴，出差卡")
+                    },
+                    onClick = viewModel::proxyClick
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "control",
                 title = {
                     Text("播放控制设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerNotification.name,
-                title = {
-                    Text("显示通知栏播放器控制器")
-                },
-                summary = {
-                    if (it) {
-                        Text(text = "播放时才会显示")
-                    } else {
-                        Text(text = "这个家里已经没有你的位置啦！")
-                    }
-                },
-                defaultValue = true,
-            )
-            multiSelectIntPreference(
-                key = SettingPreferences.PlayerOpenMode.name,
-                title = {
-                    Text("播放器自动控制")
-                },
-                summary = {
-                    Text("打开或关闭视频详情时自动进行的操作")
-                },
-                values = viewModel.openModeSelectionList,
-                defaultValue = SettingConstants.PLAYER_OPEN_MODE_DEFAULT,
-                valueToText = viewModel::openModeSelectionName,
-            )
-            multiSelectIntPreference(
-                key = SettingPreferences.PlayerOrder.name,
-                title = {
-                    Text("播放器播放顺序")
-                },
-                summary = {
-                    Text("可以多个选项组合选择")
-                },
-                defaultValue = SettingConstants.PLAYER_ORDER_DEFAULT,
-                values = viewModel.orderSelectionList,
-                valueToText = viewModel::orderSelectionName
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerOrderRandom.name,
-                title = {
-                    Text("随机播放")
-                },
-                summary = {
-                    Text("播放完一个视频后，随机播放下一个视频，单个视频循环时无效")
-                },
-                defaultValue = false,
-            )
-            listPreference(
-                key = SettingPreferences.PlayerFullMode.name,
-                title = {
-                    Text("全屏播放屏幕方向")
-                },
-                summary = {
-                    Text("可以在播放器长按全屏按钮召唤此选项")
-                },
-                defaultValue = SettingConstants.PLAYER_FULL_MODE_AUTO,
-                values = viewModel.fullModeSelectionList,
-                valueToText = viewModel::fullModeSelectionName
-            )
-            multiSelectIntPreference(
-                key = SettingPreferences.PlayerBottomProgressBarShow.name,
-                title = {
-                    Text("底部进度条显示控制")
-                },
-                defaultValue = 0,
-                values = viewModel.bottomProgressBarShowSelectionList,
-                valueToText = viewModel::bottomProgressBarShowName
-            )
-            customSetsPreference(
-                key = SettingPreferences.PlayerSpeedValues.name,
-                title = {
-                    Text("自定义倍速菜单")
-                },
-                defaultValue = SettingConstants.PLAYER_SPEED_SETS,
-                valueText = {
-                    Text(
-                        text = it + "倍速",
-                        modifier = Modifier.widthIn(min = 48.dp),
-                        textAlign = TextAlign.Center,
+            ) {
+                switchPreference(
+                    key = SettingPreferences.PlayerNotification.name,
+                    title = {
+                        Text("显示通知栏播放器控制器")
+                    },
+                    summary = {
+                        if (it) {
+                            Text(text = "播放时才会显示")
+                        } else {
+                            Text(text = "这个家里已经没有你的位置啦！")
+                        }
+                    },
+                    defaultValue = true,
+                )
+                item {
+                    val state = rememberPreferenceState(
+                        SettingPreferences.PlayerOpenMode.name,
+                        SettingConstants.PLAYER_OPEN_MODE_DEFAULT,
                     )
-                },
-                valueCanEdit = {
-                    it !in SettingConstants.PLAYER_SPEED_SETS
-                },
-                canAdd = {
-                    it.size < 10
+                    val value = state.value
+                    val intSet = remember(value, viewModel.openModeSelectionList) {
+                        viewModel.openModeSelectionList.filter {
+                            value and it == it
+                        }.toSet()
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    MultiSelectListPreference(
+                        value = intSet as Set<Any>,
+                        onValueChange = {
+                            state.value = (it as Set<Int>).fold(0) { acc, i ->
+                                acc or i
+                            }
+                        },
+                        values = viewModel.openModeSelectionList,
+                        title = {
+                            Text("播放器自动控制")
+                        },
+                        summary = {
+                            Text("打开或关闭视频详情时自动进行的操作")
+                        },
+                        valueToText = { viewModel.openModeSelectionName(it as Int) },
+                    )
                 }
-            )
-            preference(
-                key = "auto_stop_duration",
-                title = {
-                    Text("播放器定时关闭")
-                },
-                summary = {
-                    Text("视频播放的时长，而不是实际经过的时间")
-                },
-                onClick = viewModel::autoStopTimerClick
-            )
+                item {
+                    val state = rememberPreferenceState(
+                        SettingPreferences.PlayerOrder.name,
+                        SettingConstants.PLAYER_ORDER_DEFAULT,
+                    )
+                    val value = state.value
+                    val intSet = remember(value, viewModel.orderSelectionList) {
+                        viewModel.orderSelectionList.filter {
+                            value and it == it
+                        }.toSet()
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    MultiSelectListPreference(
+                        value = intSet as Set<Any>,
+                        onValueChange = {
+                            state.value = (it as Set<Int>).fold(0) { acc, i ->
+                                acc or i
+                            }
+                        },
+                        values = viewModel.orderSelectionList,
+                        title = {
+                            Text("播放器播放顺序")
+                        },
+                        summary = {
+                            Text("可以多个选项组合选择")
+                        },
+                        valueToText = { viewModel.orderSelectionName(it as Int) },
+                    )
+                }
+                switchPreference(
+                    key = SettingPreferences.PlayerOrderRandom.name,
+                    title = {
+                        Text("随机播放")
+                    },
+                    summary = {
+                        Text("播放完一个视频后，随机播放下一个视频，单个视频循环时无效")
+                    },
+                    defaultValue = false,
+                )
+                listPreference(
+                    key = SettingPreferences.PlayerFullMode.name,
+                    title = {
+                        Text("全屏播放屏幕方向")
+                    },
+                    summary = {
+                        Text("可以在播放器长按全屏按钮召唤此选项")
+                    },
+                    defaultValue = SettingConstants.PLAYER_FULL_MODE_AUTO,
+                    values = viewModel.fullModeSelectionList,
+                    valueToText = viewModel::fullModeSelectionName
+                )
+                item {
+                    val state = rememberPreferenceState(
+                        SettingPreferences.PlayerBottomProgressBarShow.name,
+                        0,
+                    )
+                    val value = state.value
+                    val intSet = remember(value, viewModel.bottomProgressBarShowSelectionList) {
+                        viewModel.bottomProgressBarShowSelectionList.filter {
+                            value and it == it
+                        }.toSet()
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    MultiSelectListPreference(
+                        value = intSet as Set<Any>,
+                        onValueChange = {
+                            state.value = (it as Set<Int>).fold(0) { acc, i ->
+                                acc or i
+                            }
+                        },
+                        values = viewModel.bottomProgressBarShowSelectionList,
+                        title = {
+                            Text("底部进度条显示控制")
+                        },
+                        valueToText = { viewModel.bottomProgressBarShowName(it as Int) },
+                    )
+                }
+                item {
+                    CustomSetsPreference(
+                        state = rememberPreferenceState(
+                            SettingPreferences.PlayerSpeedValues.name,
+                            SettingConstants.PLAYER_SPEED_SETS,
+                        ),
+                        title = {
+                            Text("自定义倍速菜单")
+                        },
+                        valueText = {
+                            Text(
+                                text = it + "倍速",
+                                modifier = Modifier.widthIn(min = 48.dp),
+                                textAlign = TextAlign.Center,
+                            )
+                        },
+                        valueCanEdit = {
+                            it !in SettingConstants.PLAYER_SPEED_SETS
+                        },
+                        canAdd = {
+                            it.size < 10
+                        }
+                    )
+                }
+                preference(
+                    key = "auto_stop_duration",
+                    title = {
+                        Text("播放器定时关闭")
+                    },
+                    summary = {
+                        Text("视频播放的时长，而不是实际经过的时间")
+                    },
+                    onClick = viewModel::autoStopTimerClick
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "small",
                 title = {
                     Text(text = "横屏状态小屏设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerSmallDraggable.name,
-                title = {
-                    Text(text = "小屏时整个播放器可拖拽")
-                },
-                summary = {
-                    if (it) {
-                        Text(text = "已启用，播放时可拖拽小屏播放器")
-                    } else {
-                        Text(text = "启用后，小屏状态时播放器手势无效")
-                    }
-                },
-                defaultValue = false,
-            )
-            sliderIntPreference(
-                key = SettingPreferences.PlayerSmallShowArea.name,
-                title = {
-                    Text(text = "小屏时播放面积")
-                },
-                valueRange = 150..600,
-                defaultValue = 480,
-                valueText = {
-                    Text(text = it.toString())
+            ) {
+                switchPreference(
+                    key = SettingPreferences.PlayerSmallDraggable.name,
+                    title = {
+                        Text(text = "小屏时整个播放器可拖拽")
+                    },
+                    summary = {
+                        if (it) {
+                            Text(text = "已启用，播放时可拖拽小屏播放器")
+                        } else {
+                            Text(text = "启用后，小屏状态时播放器手势无效")
+                        }
+                    },
+                    defaultValue = false,
+                )
+                item {
+                    SliderIntPreference(
+                        state = rememberPreferenceState(
+                            SettingPreferences.PlayerSmallShowArea.name,
+                            480,
+                        ),
+                        title = {
+                            Text(text = "小屏时播放面积")
+                        },
+                        valueRange = 150..600,
+                        valueText = {
+                            Text(text = it.toString())
+                        }
+                    )
                 }
-            )
-            sliderIntPreference(
-                key = SettingPreferences.PlayerHoldShowArea.name,
-                title = {
-                    Text(text = "小屏挂起后播放面积")
-                },
-                valueRange = 100..300,
-                defaultValue = 130,
-                valueText = {
-                    Text(text = it.toString())
+                item {
+                    SliderIntPreference(
+                        state = rememberPreferenceState(
+                            SettingPreferences.PlayerHoldShowArea.name,
+                            130,
+                        ),
+                        title = {
+                            Text(text = "小屏挂起后播放面积")
+                        },
+                        valueRange = 100..300,
+                        valueText = {
+                            Text(text = it.toString())
+                        }
+                    )
                 }
-            )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "subtitle",
                 title = {
                     Text("字幕设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerSubtitleShow.name,
-                title = {
-                    Text("字幕显示")
-                },
-                summary = {
-                    if (it) {
-                        Text("字幕功能已打开")
-                    } else {
-                        Text("字幕功能已关闭")
-                    }
-                },
-                defaultValue = true,
-            )
-            switchPreference(
-                key = SettingPreferences.PlayerAiSubtitleShow.name,
-                title = {
-                    Text("AI字幕显示")
-                },
-                summary = {
-                    Text("此AI字幕是指UP主手动生成的AI字幕，并非每个视频都有")
-                },
-                defaultValue = false,
-            )
+            ) {
+                switchPreference(
+                    key = SettingPreferences.PlayerSubtitleShow.name,
+                    title = {
+                        Text("字幕显示")
+                    },
+                    summary = {
+                        if (it) {
+                            Text("字幕功能已打开")
+                        } else {
+                            Text("字幕功能已关闭")
+                        }
+                    },
+                    defaultValue = true,
+                )
+                switchPreference(
+                    key = SettingPreferences.PlayerAiSubtitleShow.name,
+                    title = {
+                        Text("AI字幕显示")
+                    },
+                    summary = {
+                        Text("此AI字幕是指UP主手动生成的AI字幕，并非每个视频都有")
+                    },
+                    defaultValue = false,
+                )
+            }
 
             item("bottom") {
                 Spacer(

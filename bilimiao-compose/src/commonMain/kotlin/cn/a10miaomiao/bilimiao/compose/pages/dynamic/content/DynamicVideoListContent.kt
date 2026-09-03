@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.dynamic.content
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,9 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,11 +32,14 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.dyanmic.DynamicModuleAuthorBox
 import cn.a10miaomiao.bilimiao.compose.components.dyanmic.DynamicModuleStatBox
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
+import cn.a10miaomiao.bilimiao.compose.components.miao.MiaoCard
 import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicVideoContentInfo
@@ -103,6 +112,8 @@ class DynamicVideoListContentViewModel(
                         face = author.face,
                         labelText = userModule.ptimeLabelText,
                         locationText = userModule.ptimeLocationText,
+                        dynId = item.extend?.dynIdStr ?: "",
+                        dynType = item.extend?.dynType ?: 0L,
                         dynamicType = dynamicModule.type.value,
                         share = statModule.repost,
                         like = statModule.like,
@@ -225,38 +236,56 @@ fun DynamicVideoListContent() {
             state = listState,
             columns = GridCells.Adaptive(300.dp),
             contentPadding = windowInsets.toPaddingValues(
-                top = 0.dp,
-            )
+                top = 12.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .clickable { viewModel.toVideoDetail(it) }
+            itemsIndexed(
+                list,
+                key = { _, item -> item.dynId },
+                span = { _, _ -> GridItemSpan(maxLineSpan) },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
                 ) {
-                    DynamicModuleAuthorBox(
-                        name = it.name,
-                        face = it.face,
-                        labelText = it.labelText,
-                        locationText = it.locationText,
-                        onClick = {
-                            viewModel.toUserSpace(it.mid)
-                        }
-                    )
-                    VideoItemBox(
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                        ),
-                        title = it.dynamicContent.title,
-                        pic = it.dynamicContent.pic,
-                        remark = it.dynamicContent.remark,
-                        duration = it.dynamicContent.duration,
-                    )
-                    DynamicModuleStatBox(
-                        share = it.share,
-                        like = it.like,
-                        reply = it.reply,
-                        isLike = it.isLike,
-                    )
+                    // 与动态列表页（DynamicItemCard）一致的卡片表现：
+                    // up 主、视频本体、分享/评论/点赞都在同一张卡片内
+                    MiaoCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        onClick = { viewModel.toVideoDetail(item) },
+                    ) {
+                        DynamicModuleAuthorBox(
+                            name = item.name,
+                            face = item.face,
+                            labelText = item.labelText,
+                            locationText = item.locationText,
+                            onClick = {
+                                viewModel.toUserSpace(item.mid)
+                            }
+                        )
+                        VideoItemBox(
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                            ),
+                            title = item.dynamicContent.title,
+                            pic = item.dynamicContent.pic,
+                            remark = item.dynamicContent.remark,
+                            duration = item.dynamicContent.duration,
+                        )
+                        DynamicModuleStatBox(
+                            share = item.share,
+                            like = item.like,
+                            reply = item.reply,
+                            isLike = item.isLike,
+                            dynId = item.dynId,
+                            dynType = item.dynType,
+                        )
+                    }
                 }
             }
             item(

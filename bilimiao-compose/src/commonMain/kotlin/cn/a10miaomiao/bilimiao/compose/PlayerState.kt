@@ -59,6 +59,10 @@ class PlayerState(
     private val _anchorBounds = mutableStateOf<Rect?>(null)
     val anchorBounds get() = _anchorBounds.value
 
+    // 播放器是否处于挂起（收起）状态；外部（Android 侧）据此屏蔽播放器控件触摸
+    private val _holdUp = mutableStateOf(false)
+    val holdUp get() = _holdUp.value
+
     fun setShowPlayer(value: Boolean) {
         _showPlayer.value = value
     }
@@ -107,6 +111,10 @@ class PlayerState(
 
     fun setAnchorBounds(bounds: Rect?) {
         _anchorBounds.value = bounds
+    }
+
+    fun setHoldUp(value: Boolean) {
+        _holdUp.value = value
     }
 
 }

@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import cn.a10miaomiao.bilimiao.compose.base.BottomSheetState
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.flow.stateMap
@@ -36,6 +35,7 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
+import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigator
 import cn.a10miaomiao.bilimiao.compose.pages.time.content.TimeRegionDetailListContent
 import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
@@ -59,7 +59,7 @@ data class TimeRegionDetailPage(
 
     @Composable
     override fun Content() {
-        val viewModel: TimeRegionDetailPageViewModel = diViewModel {
+        val viewModel: TimeRegionDetailPageViewModel = diViewModel(key = "time-region-detail-$tid") {
             TimeRegionDetailPageViewModel(
                 it, tid, name, childIds, childNames, initialIndex
             )
@@ -82,7 +82,7 @@ private class TimeRegionDetailPageViewModel(
 ) : ViewModel(), DIAware {
 
     private val timeSettingStore: TimeSettingStore by instance()
-    private val bottomSheetState by instance<BottomSheetState>()
+    private val pageNavigator by instance<PageNavigator>()
 
     val timeText = timeSettingStore.stateFlow.stateMap {
         "${it.timeFrom.getValue("-")}\n至\n${it.timeTo.getValue("-")}"
@@ -107,7 +107,7 @@ private class TimeRegionDetailPageViewModel(
     fun menuItemClick(item: MenuItemPropInfo) {
         when (item.key) {
             MenuKeys.time -> {
-                bottomSheetState.open(TimeSettingPage())
+                pageNavigator.navigate(TimeSettingPage())
             }
             in 0..4 -> {
                 timeSettingStore.setRankOrder(item.key!!)
@@ -185,7 +185,7 @@ private fun TimeRegionDetailPageContent(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
                     .padding(
-                        top = windowInsets.topDp.dp,
+                        top = windowInsets.topDp.dp + 8.dp,
                         start = windowInsets.leftDp.dp,
                         end = windowInsets.rightDp.dp,
                     ),

@@ -23,6 +23,8 @@ data class MenuItemData(
     val checkable: Boolean = false,
     /** 子菜单当前选中的 key */
     val checkedKey: Int? = null,
+    /** 操作项本身的激活状态（如已关注、菜单展开等），用于底栏选中态显示 */
+    val selected: Boolean = false,
     /** 内容描述（无障碍） */
     val contentDescription: String? = null,
     /** 操作动作 */
@@ -43,6 +45,7 @@ data class MenuItemData(
                 },
                 checkable = propInfo.childMenu?.checkable == true,
                 checkedKey = propInfo.childMenu?.takeIf { it.checkable }?.checkedKey,
+                selected = propInfo.selected,
                 contentDescription = propInfo.contentDescription,
                 action = propInfo.action,
             )
@@ -58,6 +61,7 @@ data class MenuItemData(
             title = title,
             subTitle = subTitle,
             iconVector = iconVector,
+            selected = selected,
             childMenu = childMenu?.toMyPageMenu(
                 checkable = checkable,
                 checkedKey = checkedKey,
@@ -80,6 +84,7 @@ data class MenuItemData(
                     title = child.title
                     subTitle = child.subTitle
                     iconVector = child.iconVector
+                    selected = child.selected
                     childMenu = child.childMenu?.toMyPageMenu(
                         checkable = child.checkable,
                         checkedKey = child.checkedKey,

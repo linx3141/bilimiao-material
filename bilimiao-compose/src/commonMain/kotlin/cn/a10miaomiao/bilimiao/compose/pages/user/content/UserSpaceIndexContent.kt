@@ -1,6 +1,7 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user.content
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,34 +18,57 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.common.addPaddingValues
 import cn.a10miaomiao.bilimiao.compose.common.constant.PageTabIds
 import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.horizontalSegmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.bangumi.MiniBangumiItemBox
 import cn.a10miaomiao.bilimiao.compose.components.favourite.MiniFavouriteItemBox
 import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.user.UserSpaceViewModel
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 import kotlinx.coroutines.launch
+
+/**
+ * 横向分段列表项：提供横向分段形状（首项左侧大圆角、末项右侧大圆角、中间小圆角），
+ * 内部组件（MiaoCard 等）在 [LocalListItemShapes] 存在时自动使用 surfaceBright 分段样式。
+ */
+@Composable
+private fun HorizontalSegmentedItem(
+    index: Int,
+    count: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(
+        LocalListItemShapes provides horizontalSegmentedItemShapes(index, count),
+    ) {
+        Box(modifier = modifier) {
+            content()
+        }
+    }
+}
 
 @Composable
 private fun IndexTitle(
@@ -146,11 +170,13 @@ fun UserSpaceIndexContent(
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
             ) {
-                items(archiveData.item, { it.param }) {
-                    Box(
-                        modifier = Modifier.width(180.dp)
+                itemsIndexed(archiveData.item, { _, it -> it.param }) { index, it ->
+                    HorizontalSegmentedItem(
+                        index = index,
+                        count = archiveData.item.size,
+                        modifier = Modifier.width(180.dp),
                     ) {
                         MiniVideoItemBox(
                             title = it.title,
@@ -159,6 +185,7 @@ fun UserSpaceIndexContent(
                             damukuNum = it.danmaku,
                             duration = NumberUtil.converDuration(it.duration),
                             remark = NumberUtil.converCTime(it.ctime),
+                            isChargeVideo = it.isChargeVideo,
                             onClick = {
                                 viewModel.toVideoDetail(it)
                             }
@@ -169,22 +196,28 @@ fun UserSpaceIndexContent(
         }
 
         val favouriteData = detailData.favourite2
-        if (favouriteData.count != 0) {
+        // 只显示用户创建的收藏夹（type == 1），订阅的收藏夹（type == 2）不展示
+        val createdFavourites = favouriteData.item.filter { it.type == 1 }
+        if (createdFavourites.isNotEmpty()) {
             item {
                 IndexTitle(
                     title = "收藏",
-                    num = favouriteData.count.toString(),
+                    num = createdFavourites.size.toString(),
                     onClick = viewModel::toFavouriteList,
                 )
             }
             item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(favouriteData.item, { it.id }) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+            ) {
+                itemsIndexed(createdFavourites, { _, it -> it.id }) { index, it ->
+                    HorizontalSegmentedItem(
+                        index = index,
+                        count = createdFavourites.size,
+                        modifier = Modifier.width(120.dp),
+                    ) {
                         MiniFavouriteItemBox(
-                            modifier = Modifier.width(120.dp),
                             title = it.title,
                             cover = it.cover,
                             count = it.count.toString(),
@@ -194,36 +227,9 @@ fun UserSpaceIndexContent(
                             }
                         )
                     }
-                    if (favouriteData.item.size < favouriteData.count) {
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .size(120.dp, 120.dp)
-                                    .scale(0.85f)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(5.dp)
-                                    )
-                                    .clickable(onClick = viewModel::toFavouriteList),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    text = "查看更多",
-                                    color = Color.White,
-                                )
-                                Icon(
-                                    modifier = Modifier.padding(top = 10.dp)
-                                        .size(24.dp),
-                                    imageVector = Icons.Default.ArrowForward,
-                                    tint = Color.White,
-                                    contentDescription = null,
-                                )
-                            }
-                        }
-                    }
                 }
             }
+        }
         }
 
 
@@ -239,13 +245,17 @@ fun UserSpaceIndexContent(
                 )
             }
             item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(seasonData.item, { it.param }) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+            ) {
+                itemsIndexed(seasonData.item, { _, it -> it.param }) { index, it ->
+                    HorizontalSegmentedItem(
+                        index = index,
+                        count = seasonData.item.size,
+                        modifier = Modifier.width(120.dp),
+                    ) {
                         MiniBangumiItemBox(
-                            modifier = Modifier.width(120.dp),
                             title = it.title,
                             cover = it.cover,
                             desc = if (it.finish == 1) {
@@ -262,6 +272,7 @@ fun UserSpaceIndexContent(
                     }
                 }
             }
+            }
         }
 
 
@@ -274,27 +285,30 @@ fun UserSpaceIndexContent(
                 )
             }
             item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(coinArchiveData.item, { it.param }) {
-                        Box(
-                            modifier = Modifier.width(180.dp)
-                        ) {
-                            MiniVideoItemBox(
-                                title = it.title,
-                                pic = it.cover,
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+            ) {
+                itemsIndexed(coinArchiveData.item, { _, it -> it.param }) { index, it ->
+                    HorizontalSegmentedItem(
+                        index = index,
+                        count = coinArchiveData.item.size,
+                        modifier = Modifier.width(180.dp),
+                    ) {
+                        MiniVideoItemBox(
+                            title = it.title,
+                            pic = it.cover,
                                 playNum = it.play,
                                 damukuNum = it.danmaku,
                                 duration = NumberUtil.converDuration(it.duration),
                                 upperName = it.author,
+                                isChargeVideo = it.isChargeVideo,
                                 onClick = {
-                                    viewModel.toVideoDetail(it)
-                                }
-                            )
-                        }
+                                viewModel.toVideoDetail(it)
+                            }
+                        )
                     }
+                }
                 }
             }
         }
@@ -311,21 +325,24 @@ fun UserSpaceIndexContent(
                 )
             }
             item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(likeArchiveData.item, { it.param }) {
-                        Box(
-                            modifier = Modifier.width(180.dp)
-                        ) {
-                            MiniVideoItemBox(
-                                title = it.title,
-                                pic = it.cover,
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+            ) {
+                itemsIndexed(likeArchiveData.item, { _, it -> it.param }) { index, it ->
+                    HorizontalSegmentedItem(
+                        index = index,
+                        count = likeArchiveData.item.size,
+                        modifier = Modifier.width(180.dp),
+                    ) {
+                        MiniVideoItemBox(
+                            title = it.title,
+                            pic = it.cover,
                                 playNum = it.play,
                                 damukuNum = it.danmaku,
                                 duration = NumberUtil.converDuration(it.duration),
                                 upperName = it.author,
+                                isChargeVideo = it.isChargeVideo,
                                 onClick = {
                                     viewModel.toVideoDetail(it)
                                 }

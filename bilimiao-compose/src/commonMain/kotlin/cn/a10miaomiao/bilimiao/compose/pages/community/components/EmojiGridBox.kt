@@ -192,7 +192,7 @@ private fun EmojiGrid(
         } else {
             if (emoteType == 4) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(100.dp),
+                    columns = GridCells.Adaptive(80.dp),
                 ) {
                     items(listItems) { item ->
                         Box(
@@ -201,19 +201,19 @@ private fun EmojiGrid(
                                     onInputEmoji(item)
                                 }
                                 .padding(4.dp)
-                                .heightIn(min = 50.dp),
+                                .heightIn(min = 36.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = item.text,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(60.dp),
+                    columns = GridCells.Adaptive(40.dp),
                 ) {
                     items(listItems) { item ->
                         Box(
@@ -225,7 +225,7 @@ private fun EmojiGrid(
                             contentAlignment = Alignment.Center
                         ) {
                             AsyncImage(
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(28.dp),
                                 model = UrlUtil.autoHttps(item.url),
                                 contentDescription = null,
                             )

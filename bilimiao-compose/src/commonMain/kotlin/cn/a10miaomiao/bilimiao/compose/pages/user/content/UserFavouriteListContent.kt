@@ -1,9 +1,13 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user.content
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,11 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,6 +40,8 @@ import bilimiao.bilimiao_compose.generated.resources.Res
 import bilimiao.bilimiao_compose.generated.resources.bili_fail_placeholder_img_tv
 import bilimiao.bilimiao_compose.generated.resources.bili_default_placeholder_img_tv
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.miao.MiaoCard
@@ -65,67 +75,88 @@ internal fun UserFavouriteListContent(
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh(folderType) },
     ) {
-        LazyColumn {
+        LazyColumn(
+            contentPadding = PaddingValues(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        ) {
             val selectedMedia = openedMedia ?: list.firstOrNull()?.takeIf {
                 folderType == UserFavouriteFolderType.Created
             }
-            items(list, { it.id }) {
+            itemsIndexed(
+                list,
+                key = { _, item -> item.id },
+            ) { index, item ->
                 val isSelected = if (showTowPane) {
-                    selectedMedia?.id == it.id
+                    selectedMedia?.id == item.id
                 } else false
-                MiaoCard(
-                    modifier = Modifier.padding(5.dp),
-                    onClick = {
-                        viewModel.openMediaDetail(it)
-                    },
-                    enabled = !isSelected,
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .clickable(
-                                onClick = {
-                                    viewModel.openMediaDetail(it)
-                                },
-                                enabled = !isSelected,
-                            )
-                            .padding(10.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
+                    MiaoCard(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        onClick = {
+                            if (showTowPane) {
+                                viewModel.openMediaDetail(item)
+                            } else {
+                                viewModel.openDetailPage(item, folderType)
+                            }
+                        },
+                        enabled = !isSelected,
                     ) {
-                        AsyncImage(
-                            model = UrlUtil.autoHttps(it.cover) + "@672w_378h_1c_",
-                            contentScale = ContentScale.Crop,
-                            contentDescription = null,
+                        Row(
                             modifier = Modifier
-                                .size(width = 120.dp, height = 80.dp)
-                                .clip(RoundedCornerShape(5.dp)),
-                            placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
-                            error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(80.dp)
-                                .padding(horizontal = 10.dp),
+                                .clickable(
+                                    onClick = {
+                                        if (showTowPane) {
+                                            viewModel.openMediaDetail(item)
+                                        } else {
+                                            viewModel.openDetailPage(item, folderType)
+                                        }
+                                    },
+                                    enabled = !isSelected,
+                                )
+                                .padding(10.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = it.title,
-                                maxLines = 2,
-                                modifier = Modifier.weight(1f),
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onBackground,
+                            AsyncImage(
+                                model = UrlUtil.autoHttps(item.cover) + "@672w_378h_1c_",
+                                contentScale = ContentScale.Crop,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(width = 120.dp, height = 80.dp)
+                                    .clip(RoundedCornerShape(5.dp)),
+                                placeholder = painterResource(Res.drawable.bili_default_placeholder_img_tv),
+                                error = painterResource(Res.drawable.bili_fail_placeholder_img_tv),
                             )
-                            Text(
-                                text = if (folderType == UserFavouriteFolderType.Created) {
-                                    "${it.media_count}个视频 · ${if (it.privacy == 1) "私密" else "公开"}"
-                                } else {
-                                    "${it.media_count}个视频"
-                                },
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.outline,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(80.dp)
+                                    .padding(horizontal = 10.dp),
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    maxLines = 2,
+                                    modifier = Modifier.weight(1f),
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Text(
+                                    text = if (folderType == UserFavouriteFolderType.Created) {
+                                        "${item.media_count}个视频 · ${if (item.privacy == 1) "私密" else "公开"}"
+                                    } else {
+                                        "${item.media_count}个视频"
+                                    },
+                                    maxLines = 1,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }

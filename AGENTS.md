@@ -259,6 +259,7 @@ class ArchiveApi {
 
 ## 开发约定
 
+- **交付前必须编译安卓包**：每次代码改动交付前，必须运行 `./gradlew assembleFullDebug` 编译安卓 APK，并确认 BUILD SUCCESSFUL（产物位于 `app/build/outputs/apk/full/debug/app-full-debug.apk`），不能只编译 Kotlin。
 - **语言**：全程 Kotlin，代码注释和文档使用中文
 - **Java 目标**：JVM 1.8 字节码，JDK 17 编译
 - **SDK 版本**：Min SDK 24（app）/ 21（库），Compile SDK 36，Target SDK 35
@@ -343,3 +344,108 @@ app/src/androidTest/   # 插桩测试
 - `bilimiao-compose/build.gradle.kts` - KMP Compose UI 构建配置（含 SVG→Compose 图标生成）
 - `build.gradle.kts` - 根构建配置
 - `settings.gradle.kts` - 模块注册与仓库配置
+
+## M3E 组件规范（重要）
+
+项目统一使用 Material 3 Expressive（m3e）风格。新增任何菜单或列表时，**必须照抄以下既有实现**，不要自己发明样式：
+
+### 标准 m3e 下拉菜单
+
+参考实现（照抄即可）：
+- Compose 页面内菜单：`VideoReplyTitleBar.kt`（评论排序）、`ThemeSettingPage.kt` 的 `ExpressiveDropdownPreference`、`VideoDownloadDialog.kt`（画质菜单）、`CoverImageDialog.kt`（更多菜单）
+- 底栏菜单：`M3EBottomBar.kt`（Popup + 定位 + 动画最完整）
+- 原生 View → Compose 桥接：`PlayerMenuState`（commonMain）+ `PlayerMenuHost`（androidMain），播放器菜单（倍速/清晰度/更多/字幕）专用
+
+核心结构：
+
+```kotlin
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// 菜单内容：DropdownMenuGroup 提供连体圆角组
+Box(
+    modifier = Modifier
+        .width(IntrinsicSize.Max)  // 宽度由最长文字决定，绝不占满
+        .graphicsLayer {           // 展开/收起动画
+            scaleX = scale; scaleY = scale; alpha = alpha
+            transformOrigin = TransformOrigin(0.5f, 1f) // 菜单在锚点上方时；下方用 (0.5f, 0f)
+        },
+) {
+    DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+        items.forEachIndexed { index, item ->
+            DropdownMenuItem(
+                selected = item.selected,          // 选中项自动取色高亮
+                enabled = item.enabled,
+                onClick = { /* 选择或切换子菜单 */ },
+                text = { Text(item.title) },
+                shapes = MenuDefaults.itemShape(index, items.size),  // 分段圆角
+                selectedLeadingIcon = {            // 选中勾选标记（必须）
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                    )
+                },
+            )
+        }
+    }
+}
+```
+
+要点：
+- 弹出用 Compose `Popup(properties = PopupProperties(focusable = true))` + 自定义 `PopupPositionProvider`；
+- 菜单在锚点按钮上方或下方弹出（底部按钮→上方，顶部按钮→下方），左右与屏幕边缘保留 **8dp 边距**；
+- 展开动画：`menuAnimatable`（Animatable 0→1）控制 scale 0.8→1 + alpha，Popup 首帧布局（`onGloballyPositioned`）后再启动动画；收起先播动画再移除 Popup；
+- 子菜单：点击带 `children` 的项切换当前列表（弹窗不关），并让定位 provider 的版本号变化触发重新定位；
+- 菜单内文字用 `MaterialTheme.typography.bodyLarge`，颜色不显式指定（组件自动取色）。
+
+### 标准 m3e 单列分段列表
+
+参考实现：`VideoPagesPage.kt`（分P列表）、`VideoItemBox.kt`（视频列表卡片）、`VideoDetailContent.kt` 的 relates、`TimeRegionDetailListContent.kt`、投币/收藏/下载弹窗的选项列表。
+
+核心结构：
+
+```kotlin
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+items.forEachIndexed { index, item ->
+    CompositionLocalProvider(
+        LocalListItemShapes provides segmentedItemShapes(index, items.size),
+    ) {
+        val shapes = LocalListItemShapes.current
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),   // 与视频列表一致的水平边距
+            shape = shapes?.shape ?: RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceBright,  // 卡片背景统一
+            onClick = { /* 点击整行 */ },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+```
+
+要点：
+- 相邻卡片间距：容器用 `verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)`（分段列表**保持相邻**，不要拆成独立卡片）；
+- 卡片背景 `surfaceBright`（主题已把 `surfaceBright` 重映射为 `surfaceContainer`，弹窗/页面背景必须是 `surface` 才能有层次）；标题 `onSurface`、次要文字 `onSurfaceVariant`；
+- `segmentedItemShapes(index, count)` 自动处理：单项目（count==1）用大圆角 `MaterialTheme.shapes.large`，多项相邻用小组件圆角；
+- 弹窗内滚动列表修饰符顺序**必须**为 `Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())`——`heightIn` 在前，否则内容高度被限制导致无法滚动；
+- 选中态高亮（如投币弹窗）：选中项 `primaryContainer` 背景 + `onPrimaryContainer` 文字/勾选图标，未选中 `surfaceBright` + `onSurface`；
+- 弹窗容器（AutoSheetDialog）统一传 `modifier = Modifier.background(MaterialTheme.colorScheme.surface).padding(10.dp)`，弹窗高度由内容决定。
+
+### 弹窗（AutoSheetDialog）规范
+
+投币/收藏/下载/封面/发送评论/发送弹幕均用 `AutoSheetDialog`（`components/dialogs/AutoSheetDialog.kt`）：
+- 容器背景 `surface`，内容 padding 10dp，弹窗高度由内容决定（列表超高时内部滚动）；
+- 底部按钮行：`Row(fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(12.dp))`，主按钮 `weight(1f)`，右侧菜单按钮 `IconButton`（圆形 `primary` 背景 + `onPrimary` 图标，与主按钮同色）；
+- 返回键直接关闭弹窗，不要 pop 主导航栈。

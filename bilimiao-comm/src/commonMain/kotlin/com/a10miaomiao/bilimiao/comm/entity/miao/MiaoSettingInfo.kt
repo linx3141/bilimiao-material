@@ -26,3 +26,31 @@ data class MiaoSettingInfo(
     val url: String,
     val backupUrl: String? = null,
 )
+
+/**
+ * 本 fork 对服务端下发的设置菜单做的本地定制：
+ * - 赞助/捐助类入口固定指向爱发电主页 [SPONSOR_URL]（替换服务端默认收款链接）；
+ * - 移除 QQ 频道交流等推广/群聊入口。
+ */
+const val SPONSOR_URL = "https://ifdian.net/a/linx3141"
+
+fun List<MiaoSettingInfo>.normalizeMiaoSettingList(): List<MiaoSettingInfo> =
+    mapNotNull { item ->
+        // 删除 QQ 频道/交流群等推广入口
+        if (item.title.contains("QQ") || item.url.contains("qq.com")) {
+            null
+        } else if (
+            // 赞助类入口：统一替换为爱发电主页
+            item.title.contains("赞助") ||
+            item.title.contains("捐助") ||
+            item.title.contains("打赏") ||
+            item.url.contains("afdian") ||
+            item.url.contains("ifdian") ||
+            item.url.contains("alipayqr") ||
+            item.url.contains("qr.alipay")
+        ) {
+            item.copy(url = SPONSOR_URL)
+        } else {
+            item
+        }
+    }

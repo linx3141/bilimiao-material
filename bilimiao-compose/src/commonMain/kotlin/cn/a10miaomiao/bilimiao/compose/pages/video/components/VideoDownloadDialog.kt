@@ -1,9 +1,15 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.video.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,19 +18,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,8 +53,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import cn.a10miaomiao.bilimiao.compose.common.toColorInt
 import androidx.lifecycle.viewModelScope
 import bilibili.app.archive.v1.Arc
@@ -45,6 +74,8 @@ import bilibili.app.archive.v1.Page
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.AutoSheetDialog
 import cn.a10miaomiao.bilimiao.compose.common.download.DownloadManager
 import cn.a10miaomiao.bilimiao.compose.common.download.entry.BiliDownloadEntryInfo
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
@@ -52,6 +83,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Stable
 class VideoDownloadDialogState(
@@ -244,22 +276,34 @@ class VideoDownloadDialogState(
 }
 
 @Composable
-private fun VideoDownloadItem(
+fun VideoDownloadItem(
     page: Page,
     enabled: Boolean,
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
+    val segmentedShapes = LocalListItemShapes.current
     Box(
-        modifier = Modifier.padding(
-            vertical = 5.dp,
-            horizontal = 10.dp,
-        )
+        modifier = if (segmentedShapes == null) {
+            modifier.padding(
+                vertical = 5.dp,
+                horizontal = 10.dp,
+            )
+        } else {
+            modifier
+        },
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
+            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (segmentedShapes != null) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+            onClick = { onCheckedChange?.invoke(!checked) },
+            enabled = enabled && onCheckedChange != null,
         ) {
             Row(
                 modifier = Modifier
@@ -273,7 +317,7 @@ private fun VideoDownloadItem(
                     Text(
                         text = page.part,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Row {
                         Text(
@@ -310,72 +354,158 @@ fun VideoDownloadDialog(
         AutoSheetDialog(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.surface)
-                .heightIn(max = 500.dp),
+                .padding(10.dp),
             content = {
+                // 弹窗高度由分P列表内容决定；列表超高时内部滚动
                 Column(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
                 ) {
                     Text(
                         text = "请选择分P下载",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
-                            .padding(10.dp)
+                            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                             .fillMaxWidth()
                     )
-                    Box(
-                        modifier = Modifier.weight(1f)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                     ) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                        ) {
-                            items(state.list.size, { it }) { index ->
-                                val item = state.list[index]
-                                val isEnabled = !state.downloadedSet.contains(item.cid)
-                                val isChecked = if (isEnabled) {
-                                    state.checkedMap.containsKey(item.cid)
-                                } else {
-                                    true
-                                }
+                        state.list.forEachIndexed { index, item ->
+                            val isEnabled = !state.downloadedSet.contains(item.cid)
+                            val isChecked = if (isEnabled) {
+                                state.checkedMap.containsKey(item.cid)
+                            } else {
+                                true
+                            }
+                            CompositionLocalProvider(
+                                LocalListItemShapes provides segmentedItemShapes(
+                                    index,
+                                    state.list.size,
+                                ),
+                            ) {
                                 VideoDownloadItem(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
                                     page = item,
                                     enabled = isEnabled,
                                     checked = isChecked,
-                                    onCheckedChange = { state.checkedChange(item.cid, index) }
+                                    onCheckedChange = {
+                                        state.checkedChange(item.cid, index)
+                                    },
                                 )
                             }
                         }
-                        SnackbarHost(
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                            hostState = state.snackbar,
-                        )
                     }
+                    SnackbarHost(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        hostState = state.snackbar,
+                    )
                     Row(
                         modifier = Modifier
-                            .padding(5.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Box() {
+                        Box {
+                            var qualityAnchorBounds by remember {
+                                mutableStateOf(IntRect.Zero)
+                            }
+                            // 菜单 Popup 显示状态与动画（与底栏/评论排序下拉菜单一致）
+                            var qualityMenuPopupVisible by remember {
+                                mutableStateOf(false)
+                            }
+                            val qualityMenuAnimatable = remember { Animatable(0f) }
+                            LaunchedEffect(expandedQualityMenu) {
+                                if (expandedQualityMenu) {
+                                    qualityMenuPopupVisible = true
+                                    qualityMenuAnimatable.snapTo(0f)
+                                    qualityMenuAnimatable.animateTo(
+                                        1f,
+                                        animationSpec = tween(durationMillis = 150),
+                                    )
+                                } else {
+                                    qualityMenuAnimatable.animateTo(
+                                        0f,
+                                        animationSpec = tween(durationMillis = 150),
+                                    )
+                                    qualityMenuPopupVisible = false
+                                }
+                            }
                             Button(
-                                modifier = Modifier.padding(end = 5.dp),
                                 onClick = { expandedQualityMenu = true },
+                                modifier = Modifier.onGloballyPositioned { coords ->
+                                    val rect = coords.boundsInWindow()
+                                    qualityAnchorBounds = IntRect(
+                                        left = rect.left.roundToInt(),
+                                        top = rect.top.roundToInt(),
+                                        right = rect.right.roundToInt(),
+                                        bottom = rect.bottom.roundToInt(),
+                                    )
+                                },
                             ) {
                                 Text(text = "画质：" + state.description)
                             }
-                            DropdownMenu(
-                                expanded = expandedQualityMenu,
-                                onDismissRequest = { expandedQualityMenu = false },
-                            ) {
-                                state.qualityList.forEach {
-                                    DropdownMenuItem(
-                                        onClick = {
-                                            expandedQualityMenu = false
-                                            state.setQuality(it.first)
-                                        },
-                                        text = {
-                                            Text(text = it.second)
+                            if (qualityMenuPopupVisible) {
+                                val spacingPx = with(LocalDensity.current) {
+                                    8.dp.toPx().roundToInt()
+                                }
+                                Popup(
+                                    onDismissRequest = { expandedQualityMenu = false },
+                                    popupPositionProvider = QualityMenuPositionProvider(
+                                        anchorBounds = qualityAnchorBounds,
+                                        spacingPx = spacingPx,
+                                    ),
+                                    properties = PopupProperties(focusable = true),
+                                ) {
+                                    // 菜单宽度由内容决定，整体淡入 + 从按钮方向缩放展开
+                                    val scale = 0.8f + 0.2f * qualityMenuAnimatable.value
+                                    val alpha = qualityMenuAnimatable.value
+                                    Box(
+                                        modifier = Modifier
+                                            .width(IntrinsicSize.Max)
+                                            .graphicsLayer {
+                                                scaleX = scale
+                                                scaleY = scale
+                                                this.alpha = alpha
+                                                transformOrigin = TransformOrigin(0.5f, 1f)
+                                            },
+                                    ) {
+                                        DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+                                            state.qualityList.forEachIndexed { index, item ->
+                                                DropdownMenuItem(
+                                                    selected = item.first == state.quality,
+                                                    onClick = {
+                                                        expandedQualityMenu = false
+                                                        state.setQuality(item.first)
+                                                    },
+                                                    text = {
+                                                        Text(text = item.second)
+                                                    },
+                                                    shapes = MenuDefaults.itemShape(
+                                                        index = index,
+                                                        count = state.qualityList.size,
+                                                    ),
+                                                    selectedLeadingIcon = {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.Check,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(
+                                                                MenuDefaults.LeadingIconSize,
+                                                            ),
+                                                        )
+                                                    },
+                                                )
+                                            }
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -391,5 +521,28 @@ fun VideoDownloadDialog(
             },
             onDismiss = state::dismiss
         )
+    }
+}
+
+/**
+ * 画质下拉菜单定位：菜单在按钮正上方（弹窗底部按钮上方空间充足），
+ * 左对齐按钮左边缘，与屏幕上下边缘保留与菜单到底栏同等的边距。
+ */
+private class QualityMenuPositionProvider(
+    private val anchorBounds: IntRect,
+    private val spacingPx: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val anchor = this.anchorBounds
+        val x = anchor.left
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val y = (anchor.top - popupContentSize.height - spacingPx)
+            .coerceAtLeast(spacingPx)
+        return IntOffset(x = x, y = y)
     }
 }

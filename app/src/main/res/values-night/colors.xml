@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <color name="pink_surface">#514346</color>
+    <!-- Material 3 Expressive (2025 规范) 深色 surfaceContainerHighest，按各主题色种子生成 -->
+    <color name="pink_surface">#3E1B1E</color>
 
-    <color name="blue_surface">#43474E</color>
+    <color name="blue_surface">#11273D</color>
 
-    <color name="purple_surface">#49454E</color>
+    <color name="purple_surface">#2A213D</color>
 
-    <color name="green_surface">#424940</color>
+    <color name="green_surface">#0D2B18</color>
 
-    <color name="green_light_surface">#44483D</color>
+    <color name="green_light_surface">#162B12</color>
 
-    <color name="yellow_surface">#4B4739</color>
+    <color name="yellow_surface">#2E2501</color>
 
-    <color name="orange_surface">#51453A</color>
+    <color name="orange_surface">#362202</color>
 
-    <color name="red_surface">#534341</color>
+    <color name="red_surface">#3E1D12</color>
 
 </resources>

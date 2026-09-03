@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,13 +24,14 @@ import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.platform.LocalPlatformContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cn.a10miaomiao.bilimiao.compose.base.BottomSheetState
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.layout.DoubleColumnAutofitLayout
 import cn.a10miaomiao.bilimiao.compose.components.layout.chain_scrollable.rememberChainScrollableLayoutState
@@ -37,8 +39,10 @@ import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.pages.bangumi.components.BangumiEpisodeItem
 import cn.a10miaomiao.bilimiao.compose.pages.community.MainReplyListPage
 import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadBangumiCreatePage
-import com.a10miaomiao.bilimiao.comm.delegate.player.BangumiPlayerSource
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
+import com.a10miaomiao.bilimiao.comm.delegate.player.BangumiEpisodeBadgeInfo
+import com.a10miaomiao.bilimiao.comm.delegate.player.BangumiEpisodeInfo
+import com.a10miaomiao.bilimiao.comm.delegate.player.createBangumiPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.ResponseData
 import com.a10miaomiao.bilimiao.comm.entity.ResponseResult
 import com.a10miaomiao.bilimiao.comm.entity.ResultInfo
@@ -103,7 +107,6 @@ private class BangumiDetailPageViewModel(
 
     private val pageNavigation by instance<PageNavigation>()
     private val basePlayerDelegate by instance<BasePlayerDelegate>()
-    private val bottomSheetState by instance<BottomSheetState>()
 
     var openUrl: (String) -> Unit = {}
     var copyToClipboard: (String) -> Unit = {}
@@ -278,7 +281,7 @@ private class BangumiDetailPageViewModel(
 
     fun startPlayBangumi(episodes: List<EpisodeInfo>, item: EpisodeInfo) {
         val seasonDetail = detailInfo.value ?: return
-        val playerSource = BangumiPlayerSource(
+        val playerSource = createBangumiPlayerSource(
             sid = seasonDetail.season_id,
             epid = item.id,
             aid = item.aid,
@@ -286,23 +289,22 @@ private class BangumiDetailPageViewModel(
             title = item.long_title.ifBlank { item.title },
             coverUrl = item.cover,
             ownerId = "",
-            ownerName = seasonDetail.season_title
+            ownerName = seasonDetail.season_title,
+            episodes = episodes.map {
+                BangumiEpisodeInfo(
+                    epid = it.id, aid = it.aid, cid = it.cid,
+                    cover = it.cover,
+                    index = it.title,
+                    index_title = it.long_title,
+                    badge = it.badge,
+                    badge_info = BangumiEpisodeBadgeInfo(
+                        text = it.badge_info.text,
+                        bg_color = it.badge_info.bg_color,
+                        bg_color_night = it.badge_info.bg_color_night,
+                    ),
+                )
+            },
         )
-
-        playerSource.episodes = episodes.map {
-            BangumiPlayerSource.EpisodeInfo(
-                epid = it.id, aid = it.aid, cid = it.cid,
-                cover = it.cover,
-                index = it.title,
-                index_title = it.long_title,
-                badge = it.badge,
-                badge_info = BangumiPlayerSource.EpisodeBadgeInfo(
-                    text = it.badge_info.text,
-                    bg_color = it.badge_info.bg_color,
-                    bg_color_night = it.badge_info.bg_color_night,
-                ),
-            )
-        }
         playerSource.defaultPlayerSource.run {
             val progress = detailInfo.value?.user_status?.progress
             if (progress != null && item.id == progress.last_ep_id ) {
@@ -355,7 +357,7 @@ private class BangumiDetailPageViewModel(
                 // 下载番剧
                 val info = detailInfo.value
                 if (info != null) {
-                    bottomSheetState.open(DownloadBangumiCreatePage(info.season_id))
+                    pageNavigation.navigate(DownloadBangumiCreatePage(info.season_id))
                 } else {
                     GlobalToaster.show("请等待信息加载完成")
                 }
@@ -381,7 +383,7 @@ private class BangumiDetailPageViewModel(
 }
 
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BangumiDetailPageContent(
     id: String,
@@ -608,6 +610,7 @@ private fun BangumiDetailPageContent(
                 modifier = Modifier
                     .fillMaxSize(),
                 contentPadding = innerPadding,
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 item("evaluate") {
                     Surface(
@@ -683,28 +686,32 @@ private fun BangumiDetailPageContent(
                     }
                 }
                 val userProgress = detailInfo?.user_status?.progress
-                items(episodes, { it.id }) { item ->
-                    BangumiEpisodeItem(
-                        modifier = Modifier.padding(
-                            horizontal = 8.dp,
-                            vertical = 4.dp,
+                itemsIndexed(episodes, key = { _, item -> item.id }) { index, item ->
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            episodes.size,
                         ),
-                        item = item,
-                        desc = if (item.id == userProgress?.last_ep_id) {
-                            val time = NumberUtil.converDuration(userProgress.last_time)
-                            "上次看到 $time"
-                        } else null,
-                        playerState = playerState,
-                        onClick = {
-                            viewModel.startPlayBangumi(episodes, item)
-                        },
-                        onCommentClick = {
-                            viewModel.toCommentListPage(item)
-                        },
-                        onShareClick = {
-                            viewModel.shareEpisode(item)
-                        }
-                    )
+                    ) {
+                        BangumiEpisodeItem(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            item = item,
+                            desc = if (item.id == userProgress?.last_ep_id) {
+                                val time = NumberUtil.converDuration(userProgress.last_time)
+                                "上次看到 $time"
+                            } else null,
+                            playerState = playerState,
+                            onClick = {
+                                viewModel.startPlayBangumi(episodes, item)
+                            },
+                            onCommentClick = {
+                                viewModel.toCommentListPage(item)
+                            },
+                            onShareClick = {
+                                viewModel.shareEpisode(item)
+                            },
+                        )
+                    }
                 }
             }
         }

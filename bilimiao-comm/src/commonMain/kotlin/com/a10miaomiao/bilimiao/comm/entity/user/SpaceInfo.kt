@@ -149,8 +149,19 @@ data class SpaceInfo(
         val title: String,
         val tname: String,
         val ugc_pay: Int,
+        val badges: List<BadgeInfo>? = null,
         val uri: String
-    )
+    ) {
+        @Serializable
+        data class BadgeInfo(
+            val text: String? = null,
+        )
+
+        /** 是否充电专属视频：ugc_pay 标志，或角标文案为“充电专属” */
+        val isChargeVideo: Boolean
+            get() = ugc_pay == 1 ||
+                badges?.any { it.text == "充电专属" } == true
+    }
 
     @Serializable
     data class SeasonItem(

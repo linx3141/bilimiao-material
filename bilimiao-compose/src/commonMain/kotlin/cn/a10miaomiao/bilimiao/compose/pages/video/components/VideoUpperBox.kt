@@ -30,7 +30,11 @@ fun VideoUpperBox(
     onUserClick: (String) -> Unit,
 ) {
     if (staffList.isNotEmpty()) {
-        LazyRow {
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                horizontal = 12.dp,
+            ),
+        ) {
             items(staffList) { staff ->
                 Column(
                     modifier = Modifier
@@ -72,7 +76,7 @@ fun VideoUpperBox(
                 .clickable {
                     onUserClick(author.mid.toString())
                 }
-                .padding(10.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
@@ -107,4 +111,3 @@ fun VideoUpperBox(
         }
     }
 }
-

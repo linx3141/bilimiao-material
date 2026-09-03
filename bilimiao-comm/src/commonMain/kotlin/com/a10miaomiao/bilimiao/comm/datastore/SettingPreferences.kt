@@ -75,7 +75,13 @@ object SettingPreferences {
     val ThemeColor = longPreferencesKey("theme_color")
     val ThemeType = intPreferencesKey("theme_type")
     val ThemeDarkMode = intPreferencesKey("theme_dark_mode")
-    val ThemeAppBarType = intPreferencesKey("theme_app_bar_type")
+    // 莫奈取色配色风格（PaletteStyle 名称）与色彩规范（ColorSpec.SpecVersion 名称）
+    val ThemePaletteStyle = stringPreferencesKey("theme_palette_style")
+    val ThemeColorSpec = stringPreferencesKey("theme_color_spec")
+    // 任务栏角标 / 预测性返回手势 / 页面缩放（适配自 KernelSU 配色页面的设置项）
+    val EnableNavigationBadge = booleanPreferencesKey("enable_navigation_badge")
+    val EnablePredictiveBack = booleanPreferencesKey("enable_predictive_back")
+    val PageScale = floatPreferencesKey("page_scale")
 
     /**
      * Player
@@ -95,6 +101,7 @@ object SettingPreferences {
     val PlayerBottomProgressBarShow = intPreferencesKey("player_bottom_progress_bar_show")
     val PlayerSpeedValues = stringSetPreferencesKey("player_speed_values")
     val PlayerAudioFocus = booleanPreferencesKey("player_audio_focus")
+    val PlayerIgnoreBackGesture = booleanPreferencesKey("player_ignore_back_gesture")
     val PlayerSubtitleShow = booleanPreferencesKey("player_subtitle_show")
     val PlayerAiSubtitleShow = booleanPreferencesKey("player_ai_subtitle_show")
     val PlayerSmallShowArea = intPreferencesKey("player_small_show_area")

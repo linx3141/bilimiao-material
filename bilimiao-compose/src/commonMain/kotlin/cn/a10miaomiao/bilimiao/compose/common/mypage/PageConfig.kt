@@ -22,6 +22,15 @@ class PageConfigState {
     private val configFlow = MutableStateFlow(Cofing(-1))
     private val configList = mutableListOf<Cofing>()
     private val listenerMap = mutableMapOf<Int, OnMyPageListener>()
+    /**
+     * 页面自定义菜单内容注册表（key 为菜单项 [MenuItemPropInfo.key]）。
+     *
+     * 注册的 @Composable 内容由底栏在展开对应菜单时渲染。
+     * 注意：不能把 @Composable 函数类型放进 bilimiao-comm 层，
+     * 因为该模块没有 Compose 编译器插件，函数类型擦除后的 ABI 会不一致。
+     */
+    internal val customMenuContents =
+        mutableStateMapOf<Int, @Composable (onDismiss: () -> Unit) -> Unit>()
 
     var openSearch: (() -> Unit)? = null
 
@@ -76,6 +85,21 @@ class PageConfigState {
         val id = configFlow.value.id
         val listener = listenerMap[id] ?: return
         listener.onSearchSelfPage(keyword)
+    }
+
+    /**
+     * 注册/移除某个菜单项的自定义下拉菜单内容。
+     * 传入 null 时移除注册。
+     */
+    fun setCustomMenuContent(
+        key: Int,
+        content: (@Composable (onDismiss: () -> Unit) -> Unit)?,
+    ) {
+        if (content == null) {
+            customMenuContents.remove(key)
+        } else {
+            customMenuContents[key] = content
+        }
     }
 
     class Cofing(

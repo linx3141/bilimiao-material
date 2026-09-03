@@ -19,6 +19,8 @@ data class ToViewItemInfo(
     val left_text: String,
     val right_icon_type: Int,
     val right_text: String,
+    /** 充电专属视频信息（稍后再看接口返回 charging_pay） */
+    val charging_pay: ChargingPayInfo? = null,
 ) {
     @Serializable
     data class OwnerInfo(
@@ -33,4 +35,9 @@ data class ToViewItemInfo(
          val page: Int,
          val duration: Int,
      )
+
+    @Serializable
+    data class ChargingPayInfo(
+        val level: Int = 0,
+    )
 }

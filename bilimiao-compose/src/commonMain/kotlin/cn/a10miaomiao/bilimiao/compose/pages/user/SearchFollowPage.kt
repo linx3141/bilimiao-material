@@ -1,5 +1,6 @@
 package cn.a10miaomiao.bilimiao.compose.pages.user
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -10,8 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -24,6 +29,8 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.input.SearchBox
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.user.UserInfoCard
@@ -131,6 +138,7 @@ private class SearchFollowPageViewModel(
 }
 
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SearchFollowPageContent(
     viewModel: SearchFollowPageViewModel
@@ -173,18 +181,26 @@ private fun SearchFollowPageContent(
                 )
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(400.dp),
+                    columns = GridCells.Adaptive(300.dp),
                     modifier = Modifier.padding(
                         start = windowInsets.leftDp.dp,
                         end = windowInsets.rightDp.dp,
-                    )
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                 ) {
-                    items(list.size, { list[it].mid }) {
-                        val item = list[it]
-                        Box(
-                            modifier = Modifier.padding(vertical = 5.dp),
+                    itemsIndexed(
+                        list,
+                        key = { _, item -> item.mid },
+                        span = { _, _ -> GridItemSpan(maxLineSpan) },
+                    ) { index, item ->
+                        CompositionLocalProvider(
+                            LocalListItemShapes provides segmentedItemShapes(
+                                index,
+                                list.size,
+                            ),
                         ) {
                             UserInfoCard(
+                                modifier = Modifier.padding(horizontal = 12.dp),
                                 name = item.uname,
                                 face = item.face,
                                 sign = item.sign,

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,9 +15,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -29,10 +32,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.common.foundation.htmlText
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 
-
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BangumiItemBox(
     modifier: Modifier = Modifier,
@@ -47,31 +51,14 @@ fun BangumiItemBox(
     onMenuItemClick: ((Pair<Int, String>) -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .run {
-                if (onClick == null) this
-                else clickable(onClick = onClick)
-            }
-            .semantics(mergeDescendants = true) {
-                contentDescription = with(StringBuilder()) {
-                    append(title)
-                    if (!statusText.isNullOrBlank()) {
-                        append(",")
-                        append(statusText)
-                    }
-                    if (!desc.isNullOrBlank()) {
-                        append(",")
-                        append(desc)
-                    }
-                }.toString()
-            }
-            .then(modifier)
-    ) {
+    // 内容行：封面 + 标题信息 + 菜单
+    val content: @Composable RowScope.() -> Unit = {
         Box(
             modifier = Modifier
-                .size(width = 90.dp, height = 125.dp)
-                .clip(RoundedCornerShape(5.dp)),
+                // 封面高度与右侧文字列（130dp）一致，填满内容区后
+                // 封面到卡片上/下/侧边距均为 10dp
+                .size(width = 90.dp, height = 130.dp)
+                .clip(RoundedCornerShape(12.dp)),
         ) {
             AsyncImage(
                 model = UrlUtil.autoHttps(cover) + "@560w_746h",
@@ -94,7 +81,7 @@ fun BangumiItemBox(
             modifier = Modifier
                 .weight(1f)
                 .height(130.dp)
-                .padding(start = 5.dp),
+                .padding(start = 10.dp),
         ) {
             if (isHtml) {
                 Text(
@@ -174,5 +161,57 @@ fun BangumiItemBox(
                 }
             }
         }
+    }
+    val segmentedShapes = LocalListItemShapes.current
+    if (segmentedShapes != null) {
+        // 分段（Segmented）列表：连体圆角 + surfaceBright 背景
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = segmentedShapes.shape,
+            color = MaterialTheme.colorScheme.surfaceBright,
+            onClick = onClick ?: {},
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(10.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = with(StringBuilder()) {
+                            append(title)
+                            if (!statusText.isNullOrBlank()) {
+                                append(",")
+                                append(statusText)
+                            }
+                            if (!desc.isNullOrBlank()) {
+                                append(",")
+                                append(desc)
+                            }
+                        }.toString()
+                    },
+                content = content,
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .run {
+                    if (onClick == null) this
+                    else clickable(onClick = onClick)
+                }
+                .semantics(mergeDescendants = true) {
+                    contentDescription = with(StringBuilder()) {
+                        append(title)
+                        if (!statusText.isNullOrBlank()) {
+                            append(",")
+                            append(statusText)
+                        }
+                        if (!desc.isNullOrBlank()) {
+                            append(",")
+                            append(desc)
+                        }
+                    }.toString()
+                }
+                .then(modifier),
+            content = content,
+        )
     }
 }

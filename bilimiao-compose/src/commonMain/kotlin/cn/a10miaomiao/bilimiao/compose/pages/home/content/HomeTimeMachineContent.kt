@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.home.content
 
 import androidx.compose.foundation.background
@@ -18,22 +20,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import cn.a10miaomiao.bilimiao.compose.base.BottomSheetState
 import cn.a10miaomiao.bilimiao.compose.common.constant.PageTabIds
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
@@ -49,10 +51,14 @@ import cn.a10miaomiao.bilimiao.compose.common.flow.stateMap
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.pages.home.HomePageState
 import cn.a10miaomiao.bilimiao.compose.pages.home.components.HomeTimeMachineRegionCard
 import cn.a10miaomiao.bilimiao.compose.pages.home.components.HomeTimeMachineTimeCard
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.time.TimeRegionDetailPage
 import cn.a10miaomiao.bilimiao.compose.pages.time.TimeSettingPage
 import com.a10miaomiao.bilimiao.comm.entity.region.RegionInfo
@@ -76,7 +82,6 @@ private class HomeTimeMachineContentViewModel(
 ) : ViewModel(), DIAware {
 
     private val pageNavigation: PageNavigation by instance()
-    private val bottomSheetState by instance<BottomSheetState>()
 
     val timeSettingStore: TimeSettingStore by instance()
     val regionStore: RegionStore by instance()
@@ -112,7 +117,7 @@ private class HomeTimeMachineContentViewModel(
     }
 
     fun openTimeSetting() {
-        bottomSheetState.open(TimeSettingPage())
+        pageNavigation.navigate(TimeSettingPage())
     }
 
 }
@@ -128,7 +133,7 @@ internal fun HomeTimeMachineContent(
     val timeText by viewModel.timeText.collectAsState()
     val timeSeason by viewModel.timeSeason.collectAsState()
 
-    val listState = rememberLazyStaggeredGridState()
+    val listState = rememberLazyGridState()
     val emitter = localEmitter()
     LaunchedEffect(Unit) {
         emitter.collectAction<EmitterAction.DoubleClickTab> {
@@ -139,57 +144,96 @@ internal fun HomeTimeMachineContent(
             }
         }
     }
-    LazyVerticalStaggeredGrid(
+    val adInfo = pageState.adInfo.value
+    val adShow = adInfo != null && adInfo.isShow
+    val adOffset = if (adShow) 1 else 0
+    val colCount = rememberGridColumnCount(180.dp)
+    LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
         state = listState,
-        columns = StaggeredGridCells.Adaptive(300.dp),
+        // 大分类多列分段（列数由屏幕宽度/dpi 决定，手机通常双列）
+        columns = GridCells.Fixed(colCount),
         contentPadding = windowInsets.toPaddingValues(
-            top = 0.dp
-        )
+            left = 12.dp,
+            right = 12.dp,
+            top = 12.dp,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
-        item() {
-            HomeTimeMachineTimeCard(
-                timeText,
-                timeSeason,
-                onClick = viewModel::openTimeSetting
-            )
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            CompositionLocalProvider(
+                LocalListItemShapes provides segmentedItemShapes(
+                    0,
+                    1,
+                ),
+            ) {
+                // 独立卡片与下方大分类列表保持独立间距（8dp）
+                Box(
+                    modifier = Modifier.padding(bottom = 8.dp),
+                ) {
+                    HomeTimeMachineTimeCard(
+                        timeText,
+                        timeSeason,
+                        onClick = viewModel::openTimeSetting
+                    )
+                }
+            }
         }
-        item() {
-            val adInfo = pageState.adInfo.value
-            if (adInfo != null && adInfo.isShow) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(5.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            if (adShow) {
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        0,
+                        1,
+                    ),
                 ) {
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(5.dp)
+                            .padding(bottom = 8.dp),
                     ) {
-                        Text(
-                            adInfo.title,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                    TextButton(
-                        onClick = pageState::openLinkUrl
-                    ) {
-                        Text(adInfo.link.text)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            shape = LocalListItemShapes.current?.shape ?: RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceBright,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(5.dp)
+                                ) {
+                                    Text(
+                                        adInfo!!.title,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
+                                TextButton(
+                                    onClick = pageState::openLinkUrl
+                                ) {
+                                    Text(adInfo.link.text)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-        items(regionList, { it.tid }, ) { region ->
+        itemsIndexed(
+            regionList,
+            key = { _, region -> region.tid },
+        ) { index, region ->
+            // 多列分段：行列决定四角圆角
             HomeTimeMachineRegionCard(
                 region,
+                shape = gridSegmentedShape(index, regionList.size, colCount),
                 onClick = viewModel::toRegionDetailPage
             )
         }

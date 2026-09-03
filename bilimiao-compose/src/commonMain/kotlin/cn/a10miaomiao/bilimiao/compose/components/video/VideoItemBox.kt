@@ -1,7 +1,6 @@
 package cn.a10miaomiao.bilimiao.compose.components.video
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,18 +16,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import bilimiao.bilimiao_compose.generated.resources.Res
 import bilimiao.bilimiao_compose.generated.resources.bili_default_placeholder_img_tv
 import bilimiao.bilimiao_compose.generated.resources.bili_fail_placeholder_img_tv
@@ -38,11 +40,13 @@ import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.common.Danmukunum
 import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.common.Playnum
 import cn.a10miaomiao.bilimiao.compose.assets.bilimiaoicons.common.Upper
 import cn.a10miaomiao.bilimiao.compose.common.foundation.htmlText
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import com.a10miaomiao.bilimiao.comm.utils.NumberUtil
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun VideoItemBox(
     modifier: Modifier = Modifier,
@@ -55,22 +59,23 @@ fun VideoItemBox(
     duration: String? = null,
     progress: Float = -1f,
     isHtml: Boolean = false,
+    isChargeVideo: Boolean = false,
+    segmentedShape: Shape? = null,
     onClick: (() -> Unit)? = null,
 ) {
 
-    Row(
-        modifier = Modifier
-            .run {
-                if (onClick == null) this
-                else clickable(onClick = onClick)
-            }
-            .then(modifier)
-    ) {
+    // 内容行：封面 + 文字信息
+    val content: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+        ) {
         if (pic != null) {
             Box(
                 modifier = Modifier
                     .size(width = 140.dp, height = 85.dp)
-                    .clip(RoundedCornerShape(5.dp)),
+                    .clip(RoundedCornerShape(12.dp)),
             ) {
                 AsyncImage(
                     model = UrlUtil.autoHttps(pic) + "@672w_378h_1c_",
@@ -117,33 +122,20 @@ fun VideoItemBox(
             modifier = Modifier
                 .weight(1f)
                 .height(85.dp)
-                .padding(start = 5.dp)
-                .zIndex(-1f),
+                .padding(start = 10.dp),
         ) {
             if (title != null) {
-                if (isHtml) {
-                    Text(
-                        text = htmlText(title),
-                        maxLines = 2,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                } else {
-                    Text(
-                        text = title,
-                        maxLines = 2,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                }
+                TitleWithChargeBadge(
+                    title = if (isHtml) htmlText(title) else AnnotatedString(title),
+                    isChargeVideo = isChargeVideo,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
 
             if (upperName != null) {
@@ -220,5 +212,33 @@ fun VideoItemBox(
             }
         }
 
+        }
+    }
+
+    val segmentedShapes = LocalListItemShapes.current
+    if (segmentedShapes != null || segmentedShape != null) {
+        // 分段（Segmented）列表：与设置页一致，相邻项小圆角、首尾大圆角、连体背景
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = segmentedShape ?: segmentedShapes?.shape ?: RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceBright,
+            onClick = onClick ?: {},
+            content = content,
+        )
+    } else if (onClick != null) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            onClick = onClick,
+            content = content,
+        )
+    } else {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            content = content,
+        )
     }
 }

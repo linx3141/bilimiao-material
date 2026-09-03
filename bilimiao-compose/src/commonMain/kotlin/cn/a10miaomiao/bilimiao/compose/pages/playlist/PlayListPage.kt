@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.playlist
 
 import cn.a10miaomiao.bilimiao.compose.common.HapticFeedbackType
@@ -21,15 +23,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -46,6 +52,8 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.pages.playlist.components.PlayListItemCard
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
@@ -65,6 +73,7 @@ import org.kodein.di.instance
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.max
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class PlayListPage : ComposePage {
@@ -218,44 +227,52 @@ private fun PlayListPageContent(
         }
         LazyColumn(
             state = lazyListState,
-            contentPadding = windowInsets.toPaddingValues()
+            contentPadding = windowInsets.toPaddingValues(),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
             val playListItems = playListState.items
             val currentPlayAid = playerState.aid
             val currentPlayCid = playerState.cid
-            items(playListItems.size, {
-                playListItems[it].aid
-            }) { index ->
-                val item = playListItems[index]
+            itemsIndexed(
+                playListItems,
+                key = { _, item -> item.aid },
+            ) { index, item ->
                 ReorderableItem(
                     reorderableLazyListState,
                     key = item.aid,
-                    modifier = Modifier.padding(5.dp),
                 ) { isDragging ->
-                    PlayListItemCard(
-                        modifier = Modifier.fillMaxWidth()
-                            .longPressDraggableHandle(
-                                onDragStarted = {
-                                    hapticFeedback.perform(HapticFeedbackType.LONG_PRESS)
-                                },
-                                onDragStopped = {
-                                    hapticFeedback.perform(HapticFeedbackType.GESTURE_END)
-                                },
-                            ),
-                        index = index,
-                        item = item,
-                        onClick = {
-                           if (enableEditMode.value) {
-                               if (selectedItemsMap.contains(item.cid)) {
-                                   selectedItemsMap.remove(item.cid)
+                    CompositionLocalProvider(
+                        LocalListItemShapes provides segmentedItemShapes(
+                            index,
+                            playListItems.size,
+                        ),
+                    ) {
+                        PlayListItemCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .longPressDraggableHandle(
+                                    onDragStarted = {
+                                        hapticFeedback.perform(HapticFeedbackType.LONG_PRESS)
+                                    },
+                                    onDragStopped = {
+                                        hapticFeedback.perform(HapticFeedbackType.GESTURE_END)
+                                    },
+                                ),
+                            index = index,
+                            item = item,
+                            onClick = {
+                               if (enableEditMode.value) {
+                                   if (selectedItemsMap.contains(item.cid)) {
+                                       selectedItemsMap.remove(item.cid)
+                                   } else {
+                                       selectedItemsMap[item.cid] = index
+                                   }
                                } else {
-                                   selectedItemsMap[item.cid] = index
+                                   viewModel.toVideoInfoPage(item)
                                }
-                           } else {
-                               viewModel.toVideoInfoPage(item)
-                           }
-                        },
-                        action = {
+                            },
+                            action = {
                            if (currentPlayAid == item.aid) {
                                Column(
                                    modifier = Modifier
@@ -315,6 +332,7 @@ private fun PlayListPageContent(
                            }
                        }
                     )
+                    }
                 }
             }
         }
@@ -360,7 +378,8 @@ private fun PlayListPageContent(
                 }) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

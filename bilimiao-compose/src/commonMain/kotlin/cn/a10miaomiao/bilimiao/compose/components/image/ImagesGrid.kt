@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,12 +95,23 @@ fun ImagesGrid(
         pageCount = { count },
         getKey = { imageModels[it].originalUrl },
     )
+    // 与评论详情主评论卡片一致的大圆角
+    val cornerShape = MaterialTheme.shapes.large
     if (count == 1) {
+        // 单张图片：按原始宽高比自适应高度（不强制正方形），四边圆角
+        val model = imageModels[0]
+        val singleModifier = if (model.width > 0f && model.height > 0f) {
+            Modifier
+                .widthIn(max = 300.dp)
+                .aspectRatio(model.width / model.height)
+                .clip(cornerShape)
+        } else {
+            Modifier
+                .sizeIn(maxWidth = 300.dp, maxHeight = 300.dp)
+                .clip(cornerShape)
+        }
         ImagesGridItem(
-            modifier = Modifier.sizeIn(
-                maxWidth = 300.dp,
-                maxHeight = 300.dp,
-            ),
+            modifier = singleModifier,
             index = 0,
             imageModels = imageModels,
             previewerController = previewerController,
@@ -114,7 +127,9 @@ fun ImagesGrid(
             ) {
                 for (index in 0 until count) {
                     ImagesGridItem(
-                        modifier = Modifier.size((width / 2 - 4).dp),
+                        modifier = Modifier
+                            .size((width / 2 - 4).dp)
+                            .clip(cornerShape),
                         index = index,
                         imageModels = imageModels,
                         previewerController = previewerController,
@@ -134,7 +149,9 @@ fun ImagesGrid(
             ) {
                 for (index in 0 until count) {
                     ImagesGridItem(
-                        modifier = Modifier.size((width / 3 - 3).dp),
+                        modifier = Modifier
+                            .size((width / 3 - 3).dp)
+                            .clip(cornerShape),
                         index = index,
                         imageModels = imageModels,
                         previewerController = previewerController,

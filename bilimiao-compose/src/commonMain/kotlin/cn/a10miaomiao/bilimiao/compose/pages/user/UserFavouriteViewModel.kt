@@ -3,6 +3,9 @@ package cn.a10miaomiao.bilimiao.compose.pages.user
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
+import cn.a10miaomiao.bilimiao.compose.common.emitter.EmitterAction
+import cn.a10miaomiao.bilimiao.compose.common.emitter.SharedFlowEmitter
+import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.pages.user.components.FavouriteEditDialogState
 import com.a10miaomiao.bilimiao.comm.entity.ListAndCountInfo
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
@@ -28,6 +31,8 @@ internal class UserFavouriteViewModel(
 
     private val playerStore by instance<PlayerStore>()
     private val playListStore by instance<PlayListStore>()
+    private val pageNavigation by instance<PageNavigation>()
+    private val emitter: SharedFlowEmitter by instance()
 
     val createdList = FlowPaginationInfo<MediaListInfo>(
         pageSize = 10
@@ -48,6 +53,16 @@ internal class UserFavouriteViewModel(
     init {
         loadData(UserFavouriteFolderType.Created, 1)
         loadData(UserFavouriteFolderType.Collected, 1)
+        viewModelScope.launch {
+            emitter.collectAction<EmitterAction.MediaListChanged> {
+                val type = if (it.type == UserFavouriteFolderType.Created.name) {
+                    UserFavouriteFolderType.Created
+                } else {
+                    UserFavouriteFolderType.Collected
+                }
+                refresh(type)
+            }
+        }
     }
 
     fun getListAndIsRefreshingFlow(
@@ -136,6 +151,25 @@ internal class UserFavouriteViewModel(
 
     fun openMediaDetail(media: MediaListInfo) {
         openedMedia.value = media
+    }
+
+    /** 手机窄屏：打开独立收藏夹详情页（返回支持预测性手势与曲线动画） */
+    fun openDetailPage(media: MediaListInfo, type: UserFavouriteFolderType) {
+        if (media.type == 21) {
+            // 合集（订阅的 season 收藏）：打开合集详情页，走 View/Season 接口加载视频列表；
+            // 与宽屏双栏布局的 UserSeasonDetailContent 分支保持一致
+            pageNavigation.navigate(UserSeasonDetailPage(
+                id = media.id,
+                title = media.title,
+            ))
+        } else {
+            // 普通收藏夹：打开收藏夹详情页
+            pageNavigation.navigate(UserFavouriteDetailPage(
+                id = media.id.toString(),
+                title = media.title,
+                type = type.name,
+            ))
+        }
     }
 
     fun closeMediaDetail() {

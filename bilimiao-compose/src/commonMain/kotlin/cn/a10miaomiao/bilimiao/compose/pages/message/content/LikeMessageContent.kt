@@ -1,12 +1,17 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.message.content
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -18,6 +23,8 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.navigation.BilibiliNavigation
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.pages.message.components.MessageItemBox
@@ -155,30 +162,36 @@ internal fun LikeMessageContent() {
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh() },
     ) {
-        LazyColumn() {
-            items(list.size, { list[it].id }) {
-                val item = list[it]
-                Column() {
-                    if (it != 0) {
-                        HorizontalDivider()
-                    }
-                    val business = item.item.business
-                    val (nickname, actionText) = when(item.users.size) {
-                        0 -> Pair("", "零人赞了我的${business}")
-                        1 ->  Pair(
-                            item.users[0].nickname,
-                            "赞了我的${business}"
-                        )
-                        2 ->  Pair(
-                            "${item.users[0].nickname}、${item.users[1].nickname}",
-                            "赞了我的${business}"
-                        )
-                        else -> Pair(
-                            "${item.users[0].nickname}、${item.users[1].nickname}",
-                            "等总计${item.counts}人赞了我的${business}"
-                        )
-                    }
+        LazyColumn(
+            contentPadding = PaddingValues(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        ) {
+            items(list.size, { list[it].id }) { index ->
+                val item = list[index]
+                val business = item.item.business
+                val (nickname, actionText) = when(item.users.size) {
+                    0 -> Pair("", "零人赞了我的${business}")
+                    1 ->  Pair(
+                        item.users[0].nickname,
+                        "赞了我的${business}"
+                    )
+                    2 ->  Pair(
+                        "${item.users[0].nickname}、${item.users[1].nickname}",
+                        "赞了我的${business}"
+                    )
+                    else -> Pair(
+                        "${item.users[0].nickname}、${item.users[1].nickname}",
+                        "等总计${item.counts}人赞了我的${business}"
+                    )
+                }
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
                     MessageItemBox(
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         avatar = item.users[0]?.avatar ?: "",
                         nickname = nickname,
                         actionText = actionText,

@@ -286,7 +286,7 @@ open class BangumiPlayerSource(
         val nextIndex = index + 1
         if (nextIndex in episodes.indices) {
             val nextEpisode = episodes[nextIndex]
-            val nextPlayerSource = BangumiPlayerSource(
+            return createBangumiPlayerSource(
                 sid = sid,
                 epid = nextEpisode.epid,
                 aid = nextEpisode.aid,
@@ -295,9 +295,23 @@ open class BangumiPlayerSource(
                 coverUrl = nextEpisode.cover,
                 ownerId = ownerId,
                 ownerName = ownerName,
+                episodes = episodes.map {
+                    BangumiEpisodeInfo(
+                        epid = it.epid,
+                        aid = it.aid,
+                        cid = it.cid,
+                        cover = it.cover,
+                        index = it.index,
+                        index_title = it.index_title,
+                        badge = it.badge,
+                        badge_info = BangumiEpisodeBadgeInfo(
+                            text = it.badge_info.text,
+                            bg_color = it.badge_info.bg_color,
+                            bg_color_night = it.badge_info.bg_color_night,
+                        ),
+                    )
+                },
             )
-            nextPlayerSource.episodes = episodes
-            return nextPlayerSource
         }
         return null
     }

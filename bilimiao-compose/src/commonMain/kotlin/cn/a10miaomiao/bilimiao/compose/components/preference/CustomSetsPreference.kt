@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import cn.a10miaomiao.bilimiao.compose.common.preference.Preference
 import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceState
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 inline fun LazyListScope.customSetsPreference(
     key: String,
@@ -196,7 +197,8 @@ fun CustomSetsPreference(
                         }
                     }
                 )
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     } else if (editDialogStateValue is EditDialogState.Update) {
         AlertDialog(
@@ -239,7 +241,8 @@ fun CustomSetsPreference(
                     onValueChange = {  },
                     enabled = false,
                 )
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

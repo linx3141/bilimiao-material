@@ -1,12 +1,19 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.time.content
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,10 +25,15 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import com.a10miaomiao.bilimiao.comm.entity.ResultInfo
 import com.a10miaomiao.bilimiao.comm.entity.region.RegionVideoInfo
 import com.a10miaomiao.bilimiao.comm.entity.region.RegionVideosRankInfo
@@ -191,27 +203,35 @@ fun TimeRegionDetailListContent(
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh() },
     ) {
+        val colCount = rememberGridColumnCount(300.dp)
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
-            columns = GridCells.Adaptive(300.dp),
+            columns = GridCells.Fixed(colCount),
             contentPadding = windowInsets.toPaddingValues(
-                top = 0.dp,
-            )
+                left = 12.dp,
+                right = 12.dp,
+                top = 8.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
+            itemsIndexed(
+                list,
+                key = { _, item -> item.id },
+            ) { index, item ->
+                // 保留 m3e 分段卡片样式，多列分段排列
                 VideoItemBox(
-                    modifier = Modifier.padding(
-                        horizontal = 10.dp,
-                        vertical = 5.dp
-                    ),
-                    title = it.title,
-                    pic =it.pic,
-                    upperName = it.author,
-                    playNum = it.play,
-                    damukuNum = it.video_review,
-                    duration = NumberUtil.converDuration(it.duration),
+                    modifier = Modifier,
+                    title = item.title,
+                    pic = item.pic,
+                    upperName = item.author,
+                    playNum = item.play,
+                    damukuNum = item.video_review,
+                    duration = NumberUtil.converDuration(item.duration),
+                    isChargeVideo = item.is_pay == 1,
+                    segmentedShape = gridSegmentedShape(index, list.size, colCount),
                     onClick = {
-                        viewModel.toVideoDetail(it)
+                        viewModel.toVideoDetail(item)
                     }
                 )
             }

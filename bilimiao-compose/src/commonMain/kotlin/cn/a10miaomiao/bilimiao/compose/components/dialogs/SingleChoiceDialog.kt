@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 data class SingleChoiceItem(
     val name: String,
@@ -63,7 +64,8 @@ fun SingleChoiceDialog(
                 }
             },
             confirmButton = {
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

@@ -4,12 +4,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import cn.a10miaomiao.bilimiao.compose.common.BackHandler
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.constant.PageTabIds
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
+import cn.a10miaomiao.bilimiao.compose.common.foundation.animateTabSwitchTo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
@@ -30,10 +28,10 @@ import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.common.toWindowInsets
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.components.DynamicMiniUpperList
+import cn.a10miaomiao.bilimiao.compose.pages.dynamic.components.DynamicMostVisitedContent
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.components.DynamicPageScaffold
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.components.DynamicUpperList
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.content.DynamicAllListContent
-import cn.a10miaomiao.bilimiao.compose.pages.dynamic.content.DynamicUpperContent
 import cn.a10miaomiao.bilimiao.compose.pages.dynamic.content.DynamicVideoListContent
 import cn.a10miaomiao.bilimiao.compose.pages.home.HomePage
 import cn.a10miaomiao.bilimiao.compose.pages.home.content.HomePopularContent
@@ -44,6 +42,7 @@ import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import org.kodein.di.compose.rememberInstance
 
 @Serializable
 class DynamicPage : ComposePage {
@@ -88,25 +87,21 @@ private fun DynamicPageContent(
         onMenuItemClick = viewModel::menuItemClick,
     )
 
-    val scope = rememberCoroutineScope()
-
     val windowInsets = localContentInsets()
 
     val upperList by viewModel.upList.collectAsState()
-    val selectedUpper by viewModel.selectedUpper.collectAsState()
-    val pagerState = rememberPagerState(pageCount = { if (upperList.isNotEmpty()) 2 else 1 })
-
-    BackHandler(
-        onBack = {
-            if (pagerState.currentPage == 0) {
-                viewModel.toHomePage()
-            } else {
-                scope.launch {
-                    pagerState.animateScrollToPage(0)
-                }
-            }
-        }
-    )
+    val pageNavigation by rememberInstance<PageNavigation>()
+    // 选择 UP 主：打开独立 UP 主动态页（NavDisplay 子页面），
+    // 预测性返回与打开/关闭转场动画由导航层处理（与视频详情页一致）
+    fun openUpperPage(up: bilibili.app.dynamic.v2.UpListItem) {
+        pageNavigation.navigate(
+            DynamicUpperPage(
+                uid = up.uid,
+                face = up.face,
+                name = up.name,
+            )
+        )
+    }
 
     val saveableStateHolder = rememberSaveableStateHolder()
     DynamicPageScaffold(
@@ -122,6 +117,14 @@ private fun DynamicPageContent(
                 DynamicVideoListContent()
             }
         },
+        mostVisitedContent = {
+            saveableStateHolder.SaveableStateProvider(key = PageTabIds.DynamicMostVisited) {
+                DynamicMostVisitedContent(
+                    upperList = upperList,
+                    onSelected = ::openUpperPage,
+                )
+            }
+        },
         upperList = { maxWidth ->
             if (maxWidth > 72.dp) {
                 DynamicUpperList(
@@ -133,22 +136,7 @@ private fun DynamicPageContent(
                         bottom = windowInsets.bottom
                     ),
                     upperList = upperList,
-                    selectedUpper = if (pagerState.currentPage == 1) {
-                        selectedUpper
-                    } else null,
-                    onBackAll = {
-                        scope.launch {
-                            pagerState.animateScrollToPage(0)
-                        }
-                    },
-                    onSelected = {
-                        viewModel.selectUpper(it)
-                        if (pagerState.currentPage == 0) {
-                            scope.launch {
-                                pagerState.animateScrollToPage(1)
-                            }
-                        }
-                    }
+                    onSelected = ::openUpperPage,
                 )
             } else {
                 DynamicMiniUpperList(
@@ -156,29 +144,9 @@ private fun DynamicPageContent(
                         .width(72.dp)
                         .fillMaxHeight(),
                     upperList = upperList,
-                    selectedUpper = selectedUpper,
-                    onBackAll = {
-                        scope.launch {
-                            pagerState.animateScrollToPage(0)
-                        }
-                    },
-                    onSelected = viewModel::selectUpper,
+                    onSelected = ::openUpperPage,
                 )
             }
         },
-        upperContent = {
-            selectedUpper?.let {
-                saveableStateHolder.SaveableStateProvider(
-                    key = PageTabIds.DynamicByUpper[it.uid.toString()]
-                ) {
-                    DynamicUpperContent(
-                        dynamicViewModel = viewModel,
-                        upper = it,
-                    )
-                }
-            }
-        },
-        pagerState = pagerState,
-        selectedUpper = selectedUpper,
     )
 }

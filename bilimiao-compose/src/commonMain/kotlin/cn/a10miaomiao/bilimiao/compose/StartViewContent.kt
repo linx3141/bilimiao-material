@@ -145,6 +145,7 @@ import androidx.compose.foundation.shape.GenericShape
 import cn.a10miaomiao.bilimiao.compose.common.foundation.add
 import cn.a10miaomiao.bilimiao.compose.components.miao.MiaoOutlinedCard
 import cn.a10miaomiao.bilimiao.compose.pages.search.SearchResultPage
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Composable
 fun StartViewContent(
@@ -371,7 +372,8 @@ private fun StartIndexList(
                 ) {
                     Text("取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
     if (showScannerResultTips.isNotEmpty()) {
@@ -404,7 +406,8 @@ private fun StartIndexList(
                 ) {
                     Text("取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 

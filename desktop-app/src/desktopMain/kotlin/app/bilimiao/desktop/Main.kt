@@ -217,6 +217,7 @@ fun main() {
                             val hostDi = remember {
                                 DI {
                                     extend(di)
+                                    bindSingleton { startViewState }
                                     bindSingleton { messageDialogState }
                                     bindSingleton { emitter }
                                     bindSingleton { composeNavigator.pageNavigation }

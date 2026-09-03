@@ -1,5 +1,7 @@
 pluginManagement {
     repositories {
+        // 阿里云 Google Maven 镜像（dl.google.com 在部分网络不可达）
+        maven("https://maven.aliyun.com/repository/google")
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -15,6 +17,8 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenLocal()
+        // 阿里云 Google Maven 镜像（dl.google.com 在部分网络不可达）
+        maven("https://maven.aliyun.com/repository/google")
         google()
         mavenCentral()
         maven("https://maven.aliyun.com/repository/public")

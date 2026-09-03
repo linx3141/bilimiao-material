@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -23,8 +26,10 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
-import cn.a10miaomiao.bilimiao.compose.components.bangumi.MiniBangumiItemBox
+import cn.a10miaomiao.bilimiao.compose.components.bangumi.BangumiItemBox
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
@@ -143,6 +148,7 @@ private class UserBangumiPageViewModel(
 }
 
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UserBangumiPageContent(
     viewModel: UserBangumiPageViewModel
@@ -165,34 +171,42 @@ private fun UserBangumiPageContent(
     ) {
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
-            columns = GridCells.Adaptive(100.dp),
+            columns = GridCells.Adaptive(300.dp),
             contentPadding = windowInsets.addPaddingValues(
-                addTop = 8.dp,
-                addLeft = 10.dp,
-                addRight = 10.dp,
-                addBottom = 8.dp
+                addTop = 12.dp,
+                addBottom = 12.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) { item ->
-                MiniBangumiItemBox(
-                    modifier = Modifier.fillMaxSize(),
-                    title = item.title,
-                    cover = item.cover,
-                    desc = if (item.is_started == 1) {
-                        if (item.finish == 1){
-                            "已完结"
-                        }else{
-                            "已更新到${item.newest_ep_index}话"
-                        }
-                    } else {
-                        "即将开播"
-                    },
-                    onClick = {
-                        viewModel.toBangumiDetail(item)
-                    }
-                )
+            itemsIndexed(
+                list,
+                span = { _, _ -> GridItemSpan(maxLineSpan) },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
+                    BangumiItemBox(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        title = item.title,
+                        cover = item.cover,
+                        statusText = if (item.is_started == 1) {
+                            if (item.finish == 1) {
+                                "已完结"
+                            } else {
+                                "已更新到${item.newest_ep_index}话"
+                            }
+                        } else {
+                            "即将开播"
+                        },
+                        desc = item.index.takeIf { it.isNotBlank() },
+                        onClick = {
+                            viewModel.toBangumiDetail(item)
+                        },
+                    )
+                }
             }
             item(
                 span = { GridItemSpan(maxLineSpan) }

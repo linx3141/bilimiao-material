@@ -17,7 +17,7 @@ import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceFlow
-import cn.a10miaomiao.bilimiao.compose.components.preference.listStylePreference
+import cn.a10miaomiao.bilimiao.compose.components.preference.ListStylePreference
 import com.a10miaomiao.bilimiao.comm.datastore.SettingConstants
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.appDataStore
@@ -25,7 +25,8 @@ import kotlinx.serialization.Serializable
 import cn.a10miaomiao.bilimiao.compose.common.preference.ListPreferenceType
 import cn.a10miaomiao.bilimiao.compose.common.preference.ProvidePreferenceLocals
 import cn.a10miaomiao.bilimiao.compose.common.preference.listPreference
-import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceCategory
+import cn.a10miaomiao.bilimiao.compose.common.preference.preferenceGroup
+import cn.a10miaomiao.bilimiao.compose.common.preference.rememberPreferenceState
 import cn.a10miaomiao.bilimiao.compose.common.preference.switchPreference
 import org.kodein.di.DI
 import org.kodein.di.DIAware
@@ -47,7 +48,7 @@ private class HomeSettingPageViewModel(
 ) : ViewModel(), DIAware {
 
     val entryViews = mapOf(
-        SettingConstants.HOME_ENTRY_VIEW_DEFAULT to "默认",
+        SettingConstants.HOME_ENTRY_VIEW_DEFAULT to "时光姬",
         SettingConstants.HOME_ENTRY_VIEW_RECOMMEND to "推荐",
         SettingConstants.HOME_ENTRY_VIEW_POPULAR to "热门",
     )
@@ -84,70 +85,77 @@ private fun HomeSettingPageContent(
                     modifier = Modifier.height(windowInsets.topDp.dp)
                 )
             }
-            preferenceCategory(
+            preferenceGroup(
                 key = "top_nav",
                 title = {
                     Text("首页顶部设置")
                 }
-            )
-            listPreference(
-                key = SettingPreferences.HomeEntryView.name,
-                defaultValue = SettingConstants.HOME_ENTRY_VIEW_DEFAULT,
-                type = ListPreferenceType.DROPDOWN_MENU,
-                title = {
-                    Text("首页入口")
-                },
-                summary = {
-                    Text(text = "当前: " + viewModel.entryViews[it])
-                },
-                values = viewModel.entryViews.keys.toList(),
-                valueToText = {
-                    val text = viewModel.entryViews[it]
-                    AnnotatedString(text ?: "未知")
-                },
-            )
-            switchPreference(
-                key = SettingPreferences.HomeRecommendShow.name,
-                title = {
-                    Text("显示推荐")
-                },
-                defaultValue = true,
-            )
-            switchPreference(
-                key = SettingPreferences.HomePopularShow.name,
-                title = {
-                    Text("显示热门")
-                },
-                defaultValue = true,
-            )
+            ) {
+                listPreference(
+                    key = SettingPreferences.HomeEntryView.name,
+                    defaultValue = SettingConstants.HOME_ENTRY_VIEW_RECOMMEND,
+                    type = ListPreferenceType.DROPDOWN_MENU,
+                    title = {
+                        Text("首页入口")
+                    },
+                    summary = {
+                        Text(text = "当前: " + viewModel.entryViews[it])
+                    },
+                    values = viewModel.entryViews.keys.toList(),
+                    valueToText = {
+                        val text = viewModel.entryViews[it]
+                        AnnotatedString(text ?: "未知")
+                    },
+                )
+                switchPreference(
+                    key = SettingPreferences.HomeRecommendShow.name,
+                    title = {
+                        Text("显示推荐")
+                    },
+                    defaultValue = true,
+                )
+                switchPreference(
+                    key = SettingPreferences.HomePopularShow.name,
+                    title = {
+                        Text("显示热门")
+                    },
+                    defaultValue = true,
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "popular",
                 title = {
                     Text("热门设置")
                 }
-            )
-            switchPreference(
-                key = SettingPreferences.HomePopularCarryToken.name,
-                title = {
-                    Text("个性化热门列表")
-                },
-                summary = {
-                    Text("修改后需手动刷新列表")
-                },
-                defaultValue = true,
-            )
+            ) {
+                switchPreference(
+                    key = SettingPreferences.HomePopularCarryToken.name,
+                    title = {
+                        Text("个性化热门列表")
+                    },
+                    summary = {
+                        Text("修改后需手动刷新列表")
+                    },
+                    defaultValue = true,
+                )
+            }
 
-            preferenceCategory(
+            preferenceGroup(
                 key = "recommend",
                 title = {
                     Text("推荐设置")
                 }
-            )
-            listStylePreference(
-                key = SettingPreferences.HomeRecommendListStyle.name,
-                defaultValue = 0,
-            )
+            ) {
+                item {
+                    ListStylePreference(
+                        state = rememberPreferenceState(
+                            SettingPreferences.HomeRecommendListStyle.name,
+                            0,
+                        ),
+                    )
+                }
+            }
 
             item("bottom") {
                 Spacer(

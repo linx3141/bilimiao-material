@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.mine
 
 import cn.a10miaomiao.bilimiao.compose.common.BackHandler
@@ -19,12 +21,15 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,14 +53,20 @@ import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.ExpressiveSwitch
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.MessageDialogState
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.playlist.PlayListPage
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
 import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
+import com.a10miaomiao.bilimiao.comm.delegate.player.createVideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.entity.ResponseData
 import com.a10miaomiao.bilimiao.comm.entity.ResultInfo
@@ -82,6 +93,7 @@ import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class WatchLaterPage : ComposePage {
@@ -302,7 +314,7 @@ private class WatchLaterPageViewModel(
     fun openVideo(item: ToViewItemInfo) {
         if (isAutoPlay && playerStore.state.aid != item.aid.toString()) {
             playerDelegate.openPlayer(
-                VideoPlayerSource(
+                createVideoPlayerSource(
                     mainTitle = item.title,
                     title = item.title,
                     coverUrl = item.pic,
@@ -492,7 +504,7 @@ private fun WatchLaterPageContent(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            Switch(
+            ExpressiveSwitch(
                 modifier = Modifier.scale(0.75f),
                 checked = viewModel.isAutoPlay,
                 onCheckedChange = viewModel::changeAutoPlay,
@@ -502,31 +514,44 @@ private fun WatchLaterPageContent(
             refreshing = isRefreshing,
             onRefresh = viewModel::refreshList,
         ) {
+            val colCount = rememberGridColumnCount(300.dp)
             LazyVerticalGrid(
                 modifier = Modifier.fillMaxSize(),
-                columns = GridCells.Adaptive(300.dp),
+                columns = GridCells.Fixed(colCount),
                 contentPadding = windowInsets.toPaddingValues(
-                    top = 0.dp
-                )
+                    left = 12.dp,
+                    right = 12.dp,
+                    top = 0.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(list.size) { index ->
+                items(
+                    list.size,
+                    key = { list[it].aid },
+                ) { index ->
                     val item = list[index]
+                    val shape = gridSegmentedShape(index, list.size, colCount)
                     if (item.aid == 0L) {
-                        Box(
-                            contentAlignment = Alignment.Center,
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    horizontal = 10.dp,
-                                    vertical = 5.dp
-                                ),
+                                .fillMaxWidth(),
+                            shape = shape,
+                            color = MaterialTheme.colorScheme.surfaceBright,
                         ) {
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.outline,
-                                textAlign = TextAlign.Center,
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                         return@items
                     }
@@ -543,11 +568,7 @@ private fun WatchLaterPageContent(
                                 .run {
                                     if (enableEdit) alpha(0.6f)
                                     else this
-                                }
-                                .padding(
-                                    horizontal = 10.dp,
-                                    vertical = 5.dp
-                                ),
+                                },
                             title = item.title,
                             pic = item.pic,
                             upperName = item.owner.name,
@@ -561,6 +582,8 @@ private fun WatchLaterPageContent(
                             progress = progressRatio,
                             playNum = item.left_text,
                             damukuNum = item.right_text,
+                            isChargeVideo = item.charging_pay?.level != null,
+                            segmentedShape = shape,
                             onClick = {
                                 if (!enableEdit) {
                                     viewModel.openVideo(item)
@@ -629,7 +652,8 @@ private fun WatchLaterPageContent(
                 }) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     } else if (showCleanExpiredTipsDialog.value) {
         AlertDialog(
@@ -656,7 +680,8 @@ private fun WatchLaterPageContent(
                 }) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 }

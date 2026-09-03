@@ -33,11 +33,13 @@ import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
+import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
 import cn.a10miaomiao.bilimiao.compose.common.mypage.rememberMyMenu
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.pages.user.content.UserSearchArchiveContent
 import cn.a10miaomiao.bilimiao.compose.pages.user.content.UserSearchDynamicContent
+import com.a10miaomiao.bilimiao.comm.mypage.MenuItemPropInfo
 import com.a10miaomiao.bilimiao.comm.mypage.MenuKeys
 import com.a10miaomiao.bilimiao.comm.mypage.SearchConfigInfo
 import kotlinx.coroutines.launch
@@ -54,7 +56,9 @@ class UserSpaceSearchPage(
 
     @Composable
     override fun Content() {
-        val viewModel: UserSpaceSearchPageViewModel = diViewModel { UserSpaceSearchPageViewModel(it) }
+        val viewModel: UserSpaceSearchPageViewModel = diViewModel {
+            UserSpaceSearchPageViewModel(it, id, keyword)
+        }
         UserSpaceSearchPageContent(viewModel, id.toLong(), keyword)
     }
 }
@@ -92,6 +96,8 @@ private sealed class UserSpaceSearchPageTab(
 
 private class UserSpaceSearchPageViewModel(
     override val di: DI,
+    private val id: String,
+    private val keyword: String,
 ) : ViewModel(), DIAware {
 
     private val pageNavigation by instance<PageNavigation>()
@@ -100,6 +106,20 @@ private class UserSpaceSearchPageViewModel(
         UserSpaceSearchPageTab.Archive,
         UserSpaceSearchPageTab.Dynamic,
     )
+
+    fun menuItemClick(menuItem: MenuItemPropInfo) {
+        when (menuItem.key) {
+            MenuKeys.search -> {
+                // "继续搜索"：回到搜索输入页并预填当前关键词
+                pageNavigation.navigate(
+                    UserSpaceSearchInputPage(
+                        id = id,
+                        initKeyword = keyword,
+                    )
+                )
+            }
+        }
+    }
 
 }
 
@@ -110,7 +130,7 @@ private fun UserSpaceSearchPageContent(
     mid: Long,
     keyword: String
 ) {
-    PageConfig(
+    val pageConfigId = PageConfig(
         title = "搜索投稿\n-\n${keyword}",
         menu = rememberMyMenu {
             myItem {
@@ -123,6 +143,10 @@ private fun UserSpaceSearchPageContent(
             name = "搜索投稿",
             keyword = keyword,
         )
+    )
+    PageListener(
+        pageConfigId,
+        onMenuItemClick = viewModel::menuItemClick,
     )
     val windowInsets = localContentInsets()
 

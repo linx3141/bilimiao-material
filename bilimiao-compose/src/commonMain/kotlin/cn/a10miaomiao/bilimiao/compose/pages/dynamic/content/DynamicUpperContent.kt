@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +42,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import bilibili.app.dynamic.v2.UpListItem
-import cn.a10miaomiao.bilimiao.compose.pages.dynamic.DynamicViewModel
 import coil3.compose.AsyncImage
 import androidx.compose.foundation.shape.RoundedCornerShape
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
@@ -79,7 +84,6 @@ import org.kodein.di.instance
 
 class DynamicUpperContentViewModel(
     override val di: DI,
-    val dynamicViewModel: DynamicViewModel,
     val upper: UpListItem,
 ) : ViewModel(), DIAware {
 
@@ -159,15 +163,15 @@ class DynamicUpperContentViewModel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DynamicUpperContent(
-    dynamicViewModel: DynamicViewModel,
     upper: UpListItem,
 ) {
     val viewModel = diViewModel(
         key = "dynamic-upper-" + upper.uid,
     ) {
-        DynamicUpperContentViewModel(it, dynamicViewModel, upper)
+        DynamicUpperContentViewModel(it, upper)
     }
     val windowInsets = localContentInsets()
 
@@ -198,23 +202,31 @@ fun DynamicUpperContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            // 独立页面（DynamicUpperPage）需要保留状态栏安全区；
+            // 不再像之前嵌入动态页时那样减掉状态栏高度
             contentPadding = windowInsets.addPaddingValues(
-                addTop = -windowInsets.topDp.dp + 10.dp,
-                addBottom = 10.dp
+                addTop = 12.dp,
+                addBottom = 12.dp
             ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
-                DynamicItemCard(
-                    modifier = Modifier
-                        .widthIn(max = 600.dp)
-                        .fillMaxWidth(),
-                    item = it,
-                    onClick = {
-                        viewModel.toDetailPage(it)
-                    },
-                )
+            itemsIndexed(list) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
+                    DynamicItemCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        item = item,
+                        onClick = {
+                            viewModel.toDetailPage(item)
+                        },
+                    )
+                }
             }
             item() {
                 ListStateBox(

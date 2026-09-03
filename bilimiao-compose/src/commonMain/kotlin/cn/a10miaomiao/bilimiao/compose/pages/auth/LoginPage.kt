@@ -4,35 +4,33 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.auth.GeetestCallback
 import cn.a10miaomiao.bilimiao.compose.common.auth.GeetestResult
 import cn.a10miaomiao.bilimiao.compose.common.auth.GeetestVerifier
-import androidx.compose.animation.AnimatedContentScope
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import org.jetbrains.compose.resources.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import bilimiao.bilimiao_compose.generated.resources.Res
-import bilimiao.bilimiao_compose.generated.resources.ic_33_hide
-import bilimiao.bilimiao_compose.generated.resources.ic_33
-import bilimiao.bilimiao_compose.generated.resources.ic_22_hide
-import bilimiao.bilimiao_compose.generated.resources.ic_22
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
+import cn.a10miaomiao.bilimiao.compose.common.foundation.imePaddingAboveBottomBar
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.MessageDialogState
@@ -53,13 +51,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import org.kodein.di.compose.rememberInstance
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
-import kotlin.contracts.ExperimentalContracts
-import kotlin.contracts.InvocationKind
-import kotlin.contracts.contract
 
 @Serializable
 class LoginPage : ComposePage {
@@ -275,121 +269,120 @@ private fun LoginPageContent(
     viewModel: LoginPageViewModel
 ) {
     PageConfig(title = "登录BILIBILI")
-    val userStore: UserStore by rememberInstance()
     val windowInsets = localContentInsets()
 
     val loading by viewModel.loading.collectAsState()
     val userName by viewModel.userName.collectAsState()
     val password by viewModel.password.collectAsState()
 
-    val scrollState = rememberScrollState()
     val passwordFocusRequester = remember { FocusRequester() }
-    var passwordIsFocus by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
-    val usernameKeyboardActions = remember(passwordFocusRequester) {
-        KeyboardActions(
-            onNext = {
-                passwordFocusRequester.requestFocus()
-            }
-        )
-    }
-    val passwordKeyboardActions = remember(viewModel) {
-        KeyboardActions(
-            onDone = {
-                viewModel.startLogin()
-            }
-        )
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            // 登录页内容轻（无列表），用实时 imePadding：内容区贴着键盘顶部同步收缩，
+            // 键盘动画期间不会在内容下方露出背景块，也不会有列表重排卡顿
+            .imePaddingAboveBottomBar()
+            .padding(horizontal = 16.dp)
+            .padding(top = windowInsets.topDp.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .height(80.dp)
-                .padding(
-                    top = windowInsets.topDp.dp,
-                    bottom = windowInsets.bottom,
-                    start = windowInsets.leftDp.dp,
-                    end = windowInsets.rightDp.dp,
-                ),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (passwordIsFocus) {
-                Image(
-                    painter = painterResource(Res.drawable.ic_22_hide),
-                    contentDescription = "22娘遮眼",
-                )
-                Image(
-                    painter = painterResource(Res.drawable.ic_33_hide),
-                    contentDescription = "33娘遮眼",
-                )
-            } else {
-                Image(
-                    painter = painterResource(Res.drawable.ic_22),
-                    contentDescription = "22娘",
-                )
-                Image(
-                    painter = painterResource(Res.drawable.ic_33),
-                    contentDescription = "33娘",
-                )
-            }
-        }
         Column(
-            modifier = Modifier
-                .widthIn(max = 600.dp)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 10.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(windowInsets.topDp.dp))
-            Box(
-                modifier = Modifier
-                    .height(90.dp)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "登录Bilibili",
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            TextField(
-                label = {
-                    Text(text = "用户名/邮箱/手机号")
-                },
+            Spacer(modifier = Modifier.height(56.dp))
+            Text(
+                text = "登录Bilibili",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(modifier = Modifier.height(40.dp))
+            // 标准 Material 3 Expressive 输入框（与搜索页一致：OutlinedTextField + 大圆角）
+            OutlinedTextField(
                 value = userName,
                 onValueChange = viewModel::setUserName,
                 modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(text = "用户名/邮箱/手机号")
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                    )
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = usernameKeyboardActions,
+                keyboardActions = KeyboardActions(
+                    onNext = {
+                        passwordFocusRequester.requestFocus()
+                    },
+                ),
+                shape = MaterialTheme.shapes.extraLarge,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            TextField(
-                label = {
-                    Text(text = "密码")
-                },
+            Spacer(modifier = Modifier.height(16.dp))
+            // 密码框：M3E 输入框 + 明文/密文切换
+            OutlinedTextField(
                 value = password,
                 onValueChange = viewModel::setPassword,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(passwordFocusRequester)
-                    .onFocusChanged { passwordIsFocus = it.isFocused },
+                    .focusRequester(passwordFocusRequester),
+                placeholder = {
+                    Text(text = "密码")
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                    )
+                },
+                trailingIcon = {
+                    IconButton(
+                        onClick = { passwordVisible = !passwordVisible },
+                    ) {
+                        Icon(
+                            imageVector = if (passwordVisible) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            contentDescription = if (passwordVisible) {
+                                "隐藏密码"
+                            } else {
+                                "显示密码"
+                            },
+                        )
+                    }
+                },
                 singleLine = true,
-                // 显示密码样式
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
+                    imeAction = ImeAction.Done,
                 ),
-                // 显示密码样式
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardActions = passwordKeyboardActions,
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        viewModel.startLogin()
+                    },
+                ),
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                shape = MaterialTheme.shapes.extraLarge,
             )
-            Spacer(modifier = Modifier.height(10.dp))
+        }
+        // 按钮固定在输入框下方：键盘展开时内容整体位于键盘上方（imePadding 收缩），
+        // 按钮不会闪现到别处
+        Spacer(modifier = Modifier.height(32.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Button(
                 onClick = viewModel::startLogin,
                 modifier = Modifier.fillMaxWidth(),
@@ -404,10 +397,10 @@ private fun LoginPageContent(
                 }
                 Text(
                     modifier = Modifier.padding(horizontal = 5.dp),
-                    text = "登录"
+                    text = "登录",
                 )
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -415,14 +408,11 @@ private fun LoginPageContent(
                 TextButton(onClick = viewModel::toSMSLogin) {
                     Text(text = "手机号登录")
                 }
-                Spacer(modifier = Modifier.width(20.dp))
+                Spacer(modifier = Modifier.width(24.dp))
                 TextButton(onClick = viewModel::toQrLogin) {
                     Text(text = "二维码登录")
                 }
             }
-            Spacer(modifier = Modifier.height(windowInsets.bottom))
-
         }
     }
-
 }

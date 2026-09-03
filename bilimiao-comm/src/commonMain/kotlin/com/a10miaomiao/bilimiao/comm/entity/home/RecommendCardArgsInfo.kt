@@ -11,4 +11,6 @@ data class RecommendCardArgsInfo (
     val tid: Long = 0L,
     val tname: String? = null,
     val aid: String? = null,
+    /** 是否 UGC 付费（充电专属） */
+    val ugc_pay: Int? = null,
 )

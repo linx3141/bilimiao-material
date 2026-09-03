@@ -10,16 +10,45 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Animation
+import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.LocalTaxi
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Newspaper
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.SentimentVerySatisfied
+import androidx.compose.material.icons.filled.SpeakerNotes
+import androidx.compose.material.icons.filled.SportsGymnastics
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.VideoCameraBack
+import androidx.compose.material.icons.filled.VideoCameraFront
+import androidx.compose.material.icons.filled.Yard
 import androidx.compose.ui.unit.dp
-import cn.a10miaomiao.bilimiao.compose.components.miao.MiaoCard
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import com.a10miaomiao.bilimiao.comm.entity.region.RegionInfo
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
@@ -48,77 +77,127 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.random.Random
 
-private val regionIconMap by lazy {
+// 大分类图标：统一使用 Material 图标（不再使用彩色位图/网络图）。
+// 接口的 icon 字段大多为空，因此按分类名称映射，保证每个大分类都有图标。
+private val regionIconMap: Map<String, ImageVector> by lazy {
     mapOf(
-        "ic_region_fj" to Res.drawable.ic_region_fj,
-        "ic_region_fj_domestic" to Res.drawable.ic_region_fj_domestic,
-        "ic_region_dh" to Res.drawable.ic_region_dh,
-        "ic_region_yy" to Res.drawable.ic_region_yy,
-        "ic_region_wd" to Res.drawable.ic_region_wd,
-        "ic_region_yx" to Res.drawable.ic_region_yx,
-        "ic_region_kj" to Res.drawable.ic_region_kj,
-        "ic_region_sh" to Res.drawable.ic_region_sh,
-        "ic_region_gc" to Res.drawable.ic_region_gc,
-        "ic_region_ss" to Res.drawable.ic_region_ss,
-        "ic_region_ad" to Res.drawable.ic_region_ad,
-        "ic_region_yl" to Res.drawable.ic_region_yl,
-        "ic_region_ys" to Res.drawable.ic_region_ys,
-        "ic_region_dy" to Res.drawable.ic_region_dy,
-        "ic_region_dsj" to Res.drawable.ic_region_dsj,
+        "番剧" to Icons.Filled.Movie,
+        "国创" to Icons.Filled.Flag,
+        "纪录片" to Icons.Filled.VideoCameraBack,
+        "电影" to Icons.Filled.Movie,
+        "电视剧" to Icons.Filled.LiveTv,
+        "动画" to Icons.Filled.Animation,
+        "音乐" to Icons.Filled.MusicNote,
+        "舞蹈" to Icons.Filled.SportsGymnastics,
+        "游戏" to Icons.Filled.SportsEsports,
+        "知识" to Icons.Filled.School,
+        "科技" to Icons.Filled.Science,
+        "资讯" to Icons.Filled.Newspaper,
+        "咨询" to Icons.Filled.Newspaper,
+        "运动" to Icons.Filled.DirectionsRun,
+        "汽车" to Icons.Filled.LocalTaxi,
+        "生活" to Icons.Filled.Yard,
+        "美食" to Icons.Filled.Restaurant,
+        "动物圈" to Icons.Filled.Pets,
+        "鬼畜" to Icons.Filled.SentimentVerySatisfied,
+        "时尚" to Icons.Filled.Checkroom,
+        "娱乐" to Icons.Filled.Celebration,
+        "影视" to Icons.Filled.VideoCameraFront,
+        "剧情" to Icons.Filled.SpeakerNotes,
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun HomeTimeMachineCard(
     iconModel: Any?,
     cardName: String,
     onClick: () -> Unit,
+    segmentedShape: Shape? = null,
     content: @Composable () -> Unit,
 ) {
-    MiaoCard(
+    val segmentedShapes = LocalListItemShapes.current
+    val hasSegmented = segmentedShapes != null || segmentedShape != null
+    // Material 3 Expressive 卡片
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(5.dp),
+            .then(
+                if (hasSegmented) {
+                    // 分段/网格场景：左右边距由网格 contentPadding 提供，
+                    // 卡片不再加水平 padding（否则列间距会翻倍）
+                    Modifier
+                } else {
+                    Modifier.padding(5.dp)
+                }
+            ),
+        shape = segmentedShape ?: segmentedShapes?.shape ?: RoundedCornerShape(20.dp),
+        color = if (hasSegmented) {
+            MaterialTheme.colorScheme.surfaceBright
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
         onClick = onClick,
     ) {
-        Row(
-            modifier = Modifier.padding(5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (iconModel != null) {
-                when (iconModel) {
-                    is DrawableResource -> {
-                        Image(
-                            painter = painterResource(iconModel),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(30.dp)
-                                .padding(end = 4.dp)
-                        )
-                    }
-                    else -> {
-                        AsyncImage(
-                            model = iconModel,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(30.dp)
-                                .padding(end = 4.dp)
-                        )
+        // Surface 的 content 为 Box（叠加）布局，需用 Column 垂直排列标题行与内容区
+        Column {
+            Row(
+                modifier = Modifier.padding(
+                    start = 12.dp,
+                    top = 10.dp,
+                    end = 12.dp,
+                    bottom = 10.dp,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (iconModel != null) {
+                    when (iconModel) {
+                        is ImageVector -> {
+                            Icon(
+                                imageVector = iconModel,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .padding(end = 4.dp),
+                            )
+                        }
+                        is DrawableResource -> {
+                            Image(
+                                painter = painterResource(iconModel),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .padding(end = 4.dp)
+                            )
+                        }
+                        else -> {
+                            AsyncImage(
+                                model = iconModel,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .padding(end = 4.dp)
+                            )
+                        }
                     }
                 }
+                Text(
+                    text = cardName,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleSmall,
+                )
             }
-            Text(
-                text = cardName,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleSmall,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 5.dp, start = 5.dp, end = 5.dp),
-        ) {
-            content()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 12.dp,
+                        end = 12.dp,
+                    ),
+            ) {
+                content()
+            }
         }
     }
 }
@@ -129,56 +208,12 @@ internal fun HomeTimeMachineTimeCard(
     timeSeason: Int,
     onClick: () -> Unit,
 ) {
-    val seasonIcon = remember(timeSeason) {
-        when(timeSeason) {
-            0 -> Res.drawable.ic_season_0
-            1 -> Res.drawable.ic_season_1
-            2 -> Res.drawable.ic_season_2
-            3 -> Res.drawable.ic_season_3
-            else -> Res.drawable.ic_season_0
-        }
-    }
-    val emoticons = remember {
-        val random = Random
-        val emoticonsArr = arrayOf("ε=ε=ε=┏(゜ロ゜;)┛", "(　o=^•ェ•)o　┏━┓", "(/▽＼)", "ヽ(✿ﾟ▽ﾟ)ノ")
-        emoticonsArr[random.nextInt(emoticonsArr.size)]
-    }
     HomeTimeMachineCard(
-        iconModel = Res.drawable.ic_time,
-        cardName = "当前时间线",
+        iconModel = Icons.Filled.Schedule,
+        // 时间线范围（XXXX 至 XXXX）直接作为标题
+        cardName = timeText,
         onClick = onClick
     ) {
-        Column {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                AssistChip(
-                    onClick = onClick,
-                    leadingIcon = {
-                        Image(
-                            painter = painterResource(seasonIcon),
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = timeText,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    }
-                )
-            }
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = emoticons,
-                textAlign = TextAlign.End,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline,
-            )
-        }
     }
 }
 
@@ -186,37 +221,20 @@ internal fun HomeTimeMachineTimeCard(
 @Composable
 internal fun HomeTimeMachineRegionCard(
     region: RegionInfo,
+    shape: Shape? = null,
     onClick: (RegionInfo, Int) -> Unit
 ) {
-    val iconModel: Any? = if (region.icon != null) {
-        regionIconMap[region.icon]
-    } else if (!region.logo.isNullOrBlank()) {
-        UrlUtil.autoHttps(region.logo!!)
-    } else null
+    // 统一使用 Material 图标：优先按分类名称，其次按接口的 icon key
+    val iconModel: Any? = regionIconMap[region.name] ?: regionIconMap[region.icon]
 
     HomeTimeMachineCard(
         iconModel = iconModel,
         cardName = region.name,
+        segmentedShape = shape,
         onClick = {
+            // 二级菜单样式：点击大分类直接进入第一个子标签的视频列表
             onClick(region, 0)
         }
     ) {
-        FlowRow(
-            modifier = Modifier,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            region.children?.forEachIndexed { index, child ->
-                AssistChip(
-                    onClick = { onClick(region, index) },
-                    label = {
-                        Text(
-                            text = child.name,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    }
-                )
-            }
-        }
     }
 }

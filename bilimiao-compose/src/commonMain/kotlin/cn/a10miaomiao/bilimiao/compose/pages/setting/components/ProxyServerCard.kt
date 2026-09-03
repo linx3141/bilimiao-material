@@ -3,6 +3,7 @@ package cn.a10miaomiao.bilimiao.compose.pages.setting.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -12,23 +13,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ProxyServerCard(
+    modifier: Modifier = Modifier,
     name: String,
     host: String,
     isTrust: Boolean,
     onClick: () -> Unit,
 ) {
+    val segmentedShapes = LocalListItemShapes.current
     Box(
-        modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp),
+        modifier = if (segmentedShapes == null) {
+            modifier.padding(vertical = 10.dp, horizontal = 20.dp)
+        } else {
+            modifier
+        },
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.background
+            shape = segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (segmentedShapes != null) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.background
+            },
         ) {
             Row(
                 modifier = Modifier

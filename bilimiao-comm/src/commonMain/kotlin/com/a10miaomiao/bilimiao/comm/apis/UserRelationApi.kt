@@ -7,11 +7,12 @@ import com.a10miaomiao.bilimiao.comm.network.MiaoHttp
 class UserRelationApi {
 
     /**
-     * 关注Up主
+     * 修改与用户的关系（关注/拉黑）
+     * @param mode 1为关注，2为取消关注，5为拉黑，6为移出黑名单
      */
     fun modify(
         mid: String,
-        mode: Int, // 1为关注，2为取消关注
+        mode: Int,
     ) = MiaoHttp.request {
         url = BiliApiService.biliApi("x/relation/modify")
         formBody = ApiHelper.createParams(
@@ -20,6 +21,31 @@ class UserRelationApi {
 //            "re_src" to "32",
         )
         method = MiaoHttp.POST
+    }
+
+    /**
+     * 拉黑用户（自动解除关注，禁止对方互动/查看空间）
+     */
+    fun block(mid: String) = modify(mid, 5)
+
+    /**
+     * 将用户移出黑名单
+     */
+    fun unblock(mid: String) = modify(mid, 6)
+
+    /**
+     * 黑名单（已拉黑用户）列表
+     */
+    fun blacks(
+        pageNum: Int = 1,
+        pageSize: Int = 50,
+    ) = MiaoHttp.request {
+        url = BiliApiService.biliApi(
+            "x/relation/blacks",
+            "pn" to pageNum.toString(),
+            "ps" to pageSize.toString(),
+            "re_version" to "0",
+        )
     }
 
     /**
@@ -37,6 +63,23 @@ class UserRelationApi {
             "pn" to pageNum.toString(),
             "ps" to pageSize.toString(),
             "order_type" to order,
+            "order" to "desc",
+        )
+    }
+
+    /**
+     * 用户的粉丝列表
+     */
+    fun fans(
+        mid: String,
+        pageNum: Int = 1,
+        pageSize: Int = 50,
+    ) = MiaoHttp.request {
+        url = BiliApiService.biliApi(
+            "x/relation/fans",
+            "vmid" to mid,
+            "pn" to pageNum.toString(),
+            "ps" to pageSize.toString(),
             "order" to "desc",
         )
     }

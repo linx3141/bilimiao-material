@@ -62,6 +62,7 @@ import kotlinx.serialization.Serializable
 import org.kodein.di.compose.rememberInstance
 import org.kodein.di.bindSingleton
 import org.kodein.di.compose.subDI
+import cn.a10miaomiao.bilimiao.compose.components.dialogs.FullScreenDialogProperties
 
 @Serializable
 class MyFollowPage() : ComposePage {
@@ -380,7 +381,8 @@ private fun MyFollowPageContent() {
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
     if (tagEditDialogState != null) {
@@ -458,7 +460,8 @@ private fun MyFollowPageContent() {
                 ) {
                     Text(text = "取消")
                 }
-            }
+            },
+            properties = FullScreenDialogProperties,
         )
     }
 

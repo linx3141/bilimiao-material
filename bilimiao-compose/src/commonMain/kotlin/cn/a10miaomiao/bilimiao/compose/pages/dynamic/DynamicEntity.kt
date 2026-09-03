@@ -6,6 +6,8 @@ data class DynamicVideoInfo(
     val face: String,
     val labelText: String,
     val locationText: String,
+    val dynId: String,
+    val dynType: Long,
     val isLike: Boolean,
     val like: Long,
     val reply: Long,

@@ -1,31 +1,54 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.home.content
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,10 +65,15 @@ import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localEmitter
 import cn.a10miaomiao.bilimiao.compose.common.navigation.BilibiliNavigation
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.MiniVideoItemBox
+import cn.a10miaomiao.bilimiao.compose.components.video.gridSegmentedShape
+import cn.a10miaomiao.bilimiao.compose.components.video.rememberGridColumnCount
 import cn.a10miaomiao.bilimiao.compose.pages.message.components.MessageItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.web.WebPage
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
@@ -171,33 +199,120 @@ private class HomePopularContentViewModel(
 
 }
 
+// 热门入口图标：排行榜/每周必看/入站必刷（统一 Material 图标）
+private val entranceIconMap: Map<String, ImageVector> = mapOf(
+    "排行榜" to Icons.Filled.Leaderboard,
+    "每周必看" to Icons.Filled.Star,
+    "入站必刷" to Icons.Filled.EmojiEvents,
+)
+
 @Composable
 private fun EntranceListBox(
-    viewModel: HomePopularContentViewModel
+    viewModel: HomePopularContentViewModel,
+    colCount: Int,
 ) {
     val topEntranceList by viewModel.topEntranceList.collectAsState()
-    LazyRow {
-        items(topEntranceList, { it.uri }) {
-            Column(
-                modifier = Modifier.width(80.dp)
-                    .clickable {
-                        viewModel.toPageByUrl(it.uri)
+    // 排行榜/每周必看/入站必刷：与视频列表同款分段卡片。
+    // 单列时保持单列分段；两列及以上时三个卡片固定一行 3 列（多列分段圆角）。
+    // 左右边距由网格 contentPadding 提供，这里不再额外加水平 padding。
+    if (colCount <= 1) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            // 单列分段列表：相邻卡片之间保留 m3e 分段的小间距
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        ) {
+            topEntranceList.forEachIndexed { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        topEntranceList.size,
+                    ),
+                ) {
+                    val shapes = LocalListItemShapes.current
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = shapes?.shape ?: RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceBright,
+                        onClick = { viewModel.toPageByUrl(item.uri) },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = entranceIconMap[item.title] ?: Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(32.dp),
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = item.title,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
                     }
-                    .padding(top = 10.dp, bottom = 5.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                AsyncImage(
-                    model = UrlUtil.autoHttps(it.icon),
-                    contentDescription = "",
-                    modifier = Modifier
-                        .padding(bottom = 5.dp)
-                        .size(40.dp, 40.dp)
-                )
-                Text(
-                    text = it.title,
-                    color = MaterialTheme.colorScheme.outline,
-                    style = MaterialTheme.typography.labelSmall
-                )
+                }
+            }
+        }
+    } else {
+        // 多列：三个卡片一行 3 列（即使视频列表是两列，这里也固定 3 列）
+        // 测量最宽文字（如"每周必看"四个字），统一所有卡片宽度（等宽）
+        val density = LocalDensity.current
+        val textMeasurer = rememberTextMeasurer()
+        val textStyle = MaterialTheme.typography.labelLarge
+        val maxTextWidthPx = remember(topEntranceList, textMeasurer, textStyle) {
+            topEntranceList.maxOfOrNull { item ->
+                textMeasurer.measure(
+                    text = AnnotatedString(item.title),
+                    style = textStyle,
+                ).size.width
+            } ?: 0
+        }
+        val cardWidth = with(density) { maxTextWidthPx.toDp() } + 16.dp
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            // 居左：到左侧边缘的边距由网格 contentPadding 提供（与视频列表一致）
+            horizontalArrangement = Arrangement.spacedBy(
+                ListItemDefaults.SegmentedGap,
+            ),
+        ) {
+            topEntranceList.forEachIndexed { index, item ->
+                Surface(
+                    // 三个卡片等宽（取最宽内容，如"每周必看"四个字），不撑满整行
+                    modifier = Modifier.width(cardWidth),
+                    shape = gridSegmentedShape(index, topEntranceList.size, 3),
+                    color = MaterialTheme.colorScheme.surfaceBright,
+                    onClick = { viewModel.toPageByUrl(item.uri) },
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            imageVector = entranceIconMap[item.title] ?: Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = item.title,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
     }
@@ -232,36 +347,44 @@ internal fun HomePopularContent() {
         refreshing = isRefreshing,
         onRefresh = { viewModel.refresh() },
     ) {
+        val colCount = rememberGridColumnCount(300.dp)
         LazyVerticalGrid(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            columns = GridCells.Adaptive(300.dp),
+            // 多列分段：列数由屏幕宽度/dpi 决定，列间距与上下卡片间距一致
+            columns = GridCells.Fixed(colCount),
             contentPadding = windowInsets.toPaddingValues(
-                top = 0.dp,
-            )
+                left = 12.dp,
+                right = 12.dp,
+                top = 12.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            item {
-                EntranceListBox(viewModel)
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EntranceListBox(viewModel, colCount)
             }
-            items(list, { it.base!!.idx }) {
+            itemsIndexed(
+                list,
+                key = { _, item -> item.base!!.idx },
+            ) { index, item ->
+                // 保留 m3e 分段卡片样式，多列分段排列（行列决定四角圆角）
                 VideoItemBox(
-                    modifier = Modifier.padding(
-                        horizontal = 10.dp,
-                        vertical = 5.dp
-                    ),
-                    title = it.base?.title,
-                    pic =it.base?.cover,
-                    upperName = it.rightDesc1,
-                    remark = it.rightDesc2,
-                    duration = it.coverRightText1,
+                    modifier = Modifier,
+                    title = item.base?.title,
+                    pic = item.base?.cover,
+                    upperName = item.rightDesc1,
+                    remark = item.rightDesc2,
+                    duration = item.coverRightText1,
+                    isChargeVideo = item.cornerMarkStyle?.text?.contains("充电") == true
+                        || item.leftCornerMarkStyle?.text?.contains("充电") == true,
+                    segmentedShape = gridSegmentedShape(index, list.size, colCount),
                     onClick = {
-                        viewModel.toVideoDetail(it)
+                        viewModel.toVideoDetail(item)
                     }
                 )
             }
-            item(
-                span = { GridItemSpan(maxLineSpan) }
-            ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 ListStateBox(
                     loading = listLoading,
                     finished = listFinished,

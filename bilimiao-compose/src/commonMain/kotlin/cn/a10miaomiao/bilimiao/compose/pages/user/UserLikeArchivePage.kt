@@ -1,13 +1,19 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.user
 
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +27,8 @@ import cn.a10miaomiao.bilimiao.compose.common.entity.FlowPaginationInfo
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
 import cn.a10miaomiao.bilimiao.compose.components.list.ListStateBox
 import cn.a10miaomiao.bilimiao.compose.components.list.SwipeToRefresh
@@ -160,21 +168,33 @@ private fun UserLikeArchivePageContent(
         LazyVerticalGrid(
             modifier = Modifier.fillMaxSize(),
             columns = GridCells.Adaptive(300.dp),
-            contentPadding = windowInsets.toPaddingValues()
+            contentPadding = windowInsets.toPaddingValues(),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            items(list) {
-                VideoItemBox(
-                    modifier = Modifier.padding(10.dp),
-                    title = it.title,
-                    pic = it.cover,
-                    playNum = it.play,
-                    damukuNum = it.danmaku,
-                    remark = NumberUtil.converCTime(it.ctime),
-                    duration = NumberUtil.converDuration(it.duration),
+            itemsIndexed(
+                list,
+                span = { _, _ -> GridItemSpan(maxLineSpan) },
+            ) { index, item ->
+                CompositionLocalProvider(
+                    LocalListItemShapes provides segmentedItemShapes(
+                        index,
+                        list.size,
+                    ),
+                ) {
+                    VideoItemBox(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        title = item.title,
+                        pic = item.cover,
+                    playNum = item.play,
+                    damukuNum = item.danmaku,
+                    remark = NumberUtil.converCTime(item.ctime),
+                    duration = NumberUtil.converDuration(item.duration),
+                    isChargeVideo = item.isChargeVideo,
                     onClick = {
-                        viewModel.toVideoDetail(it)
-                    }
-                )
+                            viewModel.toVideoDetail(item)
+                        }
+                    )
+                }
             }
             item(
                 span = { GridItemSpan(maxLineSpan) }

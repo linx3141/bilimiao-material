@@ -23,6 +23,7 @@ class BiliJsBridge(
 
     private val allSupportMethod = listOf<String>(
         "global.closeBrowser",
+        "global.import",
         "ui.setStatusBarMode",
 //       "auth.checkBridgeEnable",
         "auth.getUserInfo",
@@ -32,6 +33,8 @@ class BiliJsBridge(
 //      "auth.getTeenable",
 //       "auth.getNetEnv",
         "auth.login",
+        "teenagers.getLevel",
+        "lessons.getState",
         "ability.openScheme",
         "ability.currentThemeType",
         "view.goBack",
@@ -67,6 +70,18 @@ class BiliJsBridge(
         when (event.method) {
             "ui.setStatusBarMode" -> {
 
+            }
+            "global.import" -> {
+                // 导入命名空间：页面不读取返回值，返回空对象即可
+                result = "{}"
+            }
+            "teenagers.getLevel" -> {
+                // 青少年模式等级：默认非青少年模式（0），避免页面 JS 读取 level 时崩溃
+                result = "{ level: 0 }"
+            }
+            "lessons.getState" -> {
+                // 课堂模式状态：默认关闭（0）
+                result = "{ state: 0 }"
             }
             "auth.getUserInfo" -> {
 

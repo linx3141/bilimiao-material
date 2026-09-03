@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package cn.a10miaomiao.bilimiao.compose.pages.video.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +22,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedAssistChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -39,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
 import cn.a10miaomiao.bilimiao.compose.common.foundation.annotatedText
 import cn.a10miaomiao.bilimiao.compose.components.dialogs.AutoSheetDialog
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
+import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadBangumiCreatePageViewModel.QualityInfo
 import com.a10miaomiao.bilimiao.comm.entity.MessageInfo
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
@@ -172,59 +184,94 @@ fun VideoCoinDialog(
         AutoSheetDialog(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.surface)
-                .heightIn(max = 400.dp),
+                .padding(10.dp),
             content = {
+                // 弹窗高度由内容决定，不做全屏/固定高度
                 Column(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
                 ) {
                     Text(
                         text = "请选择投币",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
-                            .padding(10.dp)
+                            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                             .fillMaxWidth()
                     )
-                    Box(
-                        modifier = Modifier.weight(1f)
+                    // 投币选项：m3e 单列分段列表
+                    val options = if (state.maxCoinNum > 1) listOf(1, 2) else listOf(1)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            VideoCoinRadioButton(
-                                num = 1,
-                                selected = state.coinNum == 1,
-                                onClick = {
-                                    state.setCoinNum(1)
-                                }
-                            )
-                            if (state.maxCoinNum > 1) {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                VideoCoinRadioButton(
-                                    num = 2,
-                                    selected = state.coinNum == 2,
-                                    onClick = {
-                                        state.setCoinNum(2)
+                        options.forEachIndexed { index, num ->
+                            CompositionLocalProvider(
+                                LocalListItemShapes provides segmentedItemShapes(
+                                    index,
+                                    options.size,
+                                ),
+                            ) {
+                                val shapes = LocalListItemShapes.current
+                                val selected = state.coinNum == num
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp),
+                                    shape = shapes?.shape ?: RoundedCornerShape(20.dp),
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceBright
+                                    },
+                                    onClick = { state.setCoinNum(num) },
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = "给up主投上${num}枚硬币",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = if (selected) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            },
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        if (selected) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            )
+                                        }
                                     }
-                                )
+                                }
                             }
                         }
-                        SnackbarHost(
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                            hostState = state.snackbar,
-                        )
                     }
+                    SnackbarHost(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        hostState = state.snackbar,
+                    )
                     Row(
                         modifier = Modifier
                             .padding(
                                 vertical = 5.dp,
-                                horizontal = 10.dp
+                                horizontal = 12.dp
                             )
                     ) {
                         Button(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             onClick = state::confirmCoin,
                             enabled = !state.loading
                         ) {

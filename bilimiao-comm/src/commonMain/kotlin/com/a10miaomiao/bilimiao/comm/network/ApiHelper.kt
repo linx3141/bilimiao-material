@@ -50,7 +50,7 @@ object ApiHelper {
         |innerVer/${BUILD_VERSION}
         |osVer/${PlatformProviders.deviceInfo.osVersion}
         |network/2
-        """.trimMargin().replace("\n", "")
+        """.trimMargin().replace("\n", " ")
 
 
     fun getTimeSpan() = Date().time / 1000

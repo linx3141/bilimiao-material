@@ -38,7 +38,7 @@ fun DynamicMiniUpperList(
     modifier: Modifier = Modifier,
     upperList: List<UpListItem>,
     selectedUpper: UpListItem? = null,
-    onBackAll: () -> Unit,
+    onBackAll: () -> Unit = {},
     onSelected: (UpListItem) -> Unit
 ) {
     val pageNavigation = localPageNavigation()

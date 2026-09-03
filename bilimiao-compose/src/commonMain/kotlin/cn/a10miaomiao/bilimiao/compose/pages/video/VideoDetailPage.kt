@@ -41,6 +41,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -80,6 +81,7 @@ import cn.a10miaomiao.bilimiao.compose.components.status.BiliLoadingBox
 import cn.a10miaomiao.bilimiao.compose.components.video.VideoItemBox
 import cn.a10miaomiao.bilimiao.compose.pages.community.MainReplyViewModel
 import cn.a10miaomiao.bilimiao.compose.pages.community.content.ReplyDetailContent
+import cn.a10miaomiao.bilimiao.compose.pages.video.components.CoverImageDialog
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoAddFavoriteDialog
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoCoinDialog
 import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoCoverBox
@@ -105,26 +107,38 @@ import org.kodein.di.instance
 @Serializable
 class VideoDetailPage(
     val id: String,
+    /** 进入页面后强制自动播放一次（如收藏夹自动连播点击进入） */
+    val autoPlay: Boolean = false,
 ) : ComposePage {
 
     @Composable
     override fun Content() {
         val viewModel: VideoDetailViewModel = diViewModel(key = id) {
-            VideoDetailViewModel(it, id)
+            VideoDetailViewModel(it, id, autoPlay = autoPlay)
         }
         val platformContext = LocalPlatformContext.current
         LaunchedEffect(Unit) {
             viewModel.openUrl = { platformContext.openUrl(it) }
             viewModel.copyToClipboard = { platformContext.copyToClipboard(it) }
             viewModel.shareText = { platformContext.shareText(it) }
+            viewModel.openCoverImage = { platformContext.openCoverImage(it) }
+            viewModel.coverDialogState.copyToClipboard = {
+                platformContext.copyToClipboard(it)
+            }
         }
         val windowInsets = localContentInsets()
 
         val detailData = viewModel.detailData.collectAsState().value
 
-        BackHandler(
-            onBack = viewModel::onBackPressed
-        )
+        // 页面返回交给导航层处理（支持预测性返回手势动画），
+        // 关闭播放器逻辑在页面离开组合时执行
+        DisposableEffect(Unit) {
+            // 每次进入组合都补注册（返回导航复用 ViewModel、不重新加载数据）
+            viewModel.registerPage()
+            onDispose {
+                viewModel.onPageDispose()
+            }
+        }
         AnimatedContent(
             modifier = Modifier.fillMaxSize(),
             targetState = detailData == null,
@@ -418,9 +432,17 @@ private fun VideoDetailPageContent(
         }
     }
 
-    VideoCoinDialog(state = viewModel.coinDialogState)
-    VideoAddFavoriteDialog(viewModel.addFavoriteDialogState)
-    VideoDownloadDialog(state = viewModel.downloadDialogState)
+    // 投币/收藏/下载弹窗（与发送评论弹窗同款样式）
+    if (viewModel.coinDialogState.visible) {
+        VideoCoinDialog(viewModel.coinDialogState)
+    }
+    if (viewModel.favoriteDialogState.visible) {
+        VideoAddFavoriteDialog(viewModel.favoriteDialogState)
+    }
+    if (viewModel.downloadDialogState.visible) {
+        VideoDownloadDialog(viewModel.downloadDialogState)
+    }
+    CoverImageDialog(viewModel.coverDialogState)
 }
 
 @Composable

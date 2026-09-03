@@ -200,11 +200,15 @@ private fun DynamicDetailPageDetailContent(
     windowInsets: ContentInsets,
     detailData: OpusItem,
 ) {
-    val oid = detailData.oid.toString()
+    // 评论 oid 使用业务方 id（与普通动态详情页一致），
+    // 部分动态的 businessId 与动态 id 不同，直接用 oid 会取不到评论
+    val oid = detailData.extend?.businessId?.takeIf { it.isNotBlank() }
+        ?: detailData.oid.toString()
     val replyViewModel = diViewModel(
         key = "dynamic.reply.${oid}"
     ) {
-        MainReplyViewModel(it, oid, type = 11)
+        // 图文（opus）动态的评论 type 为 17（type=11 只对普通/转发动态有效）
+        MainReplyViewModel(it, oid, type = 17)
     }
     val replyList by replyViewModel.list.data.collectAsState()
     val replyListLoading by replyViewModel.list.loading.collectAsState()
@@ -260,7 +264,10 @@ private fun DynamicDetailPageDetailContent(
                         .padding(bottom = 5.dp),
                 ) {
                     for(module in detailData.modules) {
-                        DynamicModuleBox(module = module)
+                        DynamicModuleBox(
+                            module = module,
+                            item = null,
+                        )
                     }
 //                topModule?.author?.let {
 //                    Text(

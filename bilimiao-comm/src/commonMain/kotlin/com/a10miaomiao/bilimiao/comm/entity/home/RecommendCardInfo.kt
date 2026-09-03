@@ -30,6 +30,10 @@ data class RecommendCardInfo (
     val goto_icon: GotoIconInfo? = null,
     val args: RecommendCardArgsInfo? = null,
     val player_args: RecommendCardPlayerArgsInfo? = null,
+    /** UGC 付费（充电专属）标志 */
+    val ugc_pay: Int = 0,
+    /** 充电专属视频信息 */
+    val charging_pay: ChargingPayInfo? = null,
 ) {
     @Serializable
     data class ThreePointV2Info(
@@ -61,5 +65,10 @@ data class RecommendCardInfo (
         val icon_night_url: String,
         val icon_width: Int,
         val icon_height: Int,
+    )
+
+    @Serializable
+    data class ChargingPayInfo(
+        val level: Int = 0,
     )
 }

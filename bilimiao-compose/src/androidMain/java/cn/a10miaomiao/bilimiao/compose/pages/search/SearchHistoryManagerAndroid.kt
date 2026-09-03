@@ -7,20 +7,20 @@ actual fun createSearchHistoryManager(): SearchHistoryManager {
     val db = createSearchHistoryDatabase()
     val dao = db.searchHistoryDao()
     return object : SearchHistoryManager {
-        override suspend fun queryAllHistory(): List<String> {
-            return dao.queryAllHistory().map { it.keyword }
+        override suspend fun queryAllHistory(type: String): List<String> {
+            return dao.queryAllHistory(type).map { it.keyword }
         }
 
-        override suspend fun insertHistory(keyword: String) {
-            dao.insertHistory(SearchHistoryEntity(keyword = keyword))
+        override suspend fun insertHistory(keyword: String, type: String) {
+            dao.insertHistory(SearchHistoryEntity(keyword = keyword, type = type))
         }
 
-        override suspend fun deleteHistory(keyword: String) {
-            dao.deleteHistory(keyword)
+        override suspend fun deleteHistory(keyword: String, type: String) {
+            dao.deleteHistory(keyword, type)
         }
 
-        override suspend fun deleteAllHistory() {
-            dao.deleteAllHistory()
+        override suspend fun deleteAllHistory(type: String) {
+            dao.deleteAllHistory(type)
         }
     }
 }

@@ -90,7 +90,7 @@ data class UserSpacePage(
         val archiveViewModel = diViewModel(key = "archive$id") {
             UserArchiveViewModel(it, id)
         }
-        val viewModel = diViewModel() {
+        val viewModel = diViewModel(key = "user-space-$id") {
             UserSpaceViewModel(it, id, archiveViewModel)
         }
         val platformContext = LocalPlatformContext.current
@@ -253,6 +253,8 @@ private fun UserSpacePageDetailContent(
             if (!viewModel.isSelf) {
                 myItem {
                     key = MenuKeys.follow
+                    // 已关注时底栏"关注"项显示为激活状态
+                    selected = isFollow
                     if (isFollow) {
                         iconVector = androidx.compose.material.icons.Icons.Default.Favorite
                         title = "已关注"

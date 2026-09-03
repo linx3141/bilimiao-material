@@ -50,6 +50,10 @@ fun MainActivityComposeHost(
     platformContext: AndroidPlatformContext,
     playerContent: (@Composable () -> Unit)? = null,
     onBackClick: () -> Unit,
+    /** 播放器返回回调：全屏时退出全屏，小窗/浮窗时关闭播放器（与本地旧版行为对齐） */
+    onPlayerBackPressed: () -> Unit = {},
+    /** 关闭播放器回调（从正在播放的视频详情页返回时使用） */
+    onClosePlayer: () -> Unit = {},
     initialDeepLink: Uri? = null,
     onInitialDeepLinkConsumed: () -> Unit = {},
     onReady: () -> Unit = {},
@@ -66,6 +70,8 @@ fun MainActivityComposeHost(
         platformContext = platformContext,
         playerContent = playerContent,
         onBackClick = onBackClick,
+        onPlayerBackPressed = onPlayerBackPressed,
+        onClosePlayer = onClosePlayer,
         initialDeepLink = initialDeepLink?.toString(),
         onInitialDeepLinkConsumed = onInitialDeepLinkConsumed,
         onReady = onReady,

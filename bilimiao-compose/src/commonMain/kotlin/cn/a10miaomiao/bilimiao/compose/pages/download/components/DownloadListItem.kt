@@ -3,6 +3,7 @@ package cn.a10miaomiao.bilimiao.compose.pages.download.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -12,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextOverflow
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -20,24 +22,38 @@ import bilimiao.bilimiao_compose.generated.resources.bili_fail_placeholder_img_t
 import bilimiao.bilimiao_compose.generated.resources.bili_default_placeholder_img_tv
 import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadInfo
 import cn.a10miaomiao.bilimiao.compose.pages.download.DownloadType
+import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
 import cn.a10miaomiao.bilimiao.compose.common.download.entry.CurrentDownloadInfo
 import com.a10miaomiao.bilimiao.comm.utils.UrlUtil
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DownloadListItem(
     curDownload: CurrentDownloadInfo?,
     item: DownloadInfo,
-    onClick: () -> Unit
+    segmentedShape: Shape? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val segmentedShapes = LocalListItemShapes.current
+    val hasSegmented = segmentedShape != null || segmentedShapes != null
     Box(
-        modifier = Modifier.padding(5.dp),
+        modifier = if (!hasSegmented) {
+            modifier.padding(5.dp)
+        } else {
+            modifier
+        },
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
+            shape = segmentedShape ?: segmentedShapes?.shape ?: RoundedCornerShape(10.dp),
+            color = if (hasSegmented) {
+                MaterialTheme.colorScheme.surfaceBright
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
         ) {
             Column() {
                 Row(
@@ -120,6 +136,6 @@ fun DownloadListItemPreview() {
             type = DownloadType.VIDEO,
             items = mutableListOf()
         ),
-        {}
+        onClick = {}
     )
 }
