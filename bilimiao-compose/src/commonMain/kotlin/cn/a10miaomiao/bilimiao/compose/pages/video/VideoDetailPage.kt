@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import org.kodein.di.compose.rememberInstance
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +70,7 @@ import cn.a10miaomiao.bilimiao.compose.common.ContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
+import cn.a10miaomiao.bilimiao.compose.common.localPlayerState
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
 import cn.a10miaomiao.bilimiao.compose.common.toPaddingValues
@@ -90,6 +92,7 @@ import cn.a10miaomiao.bilimiao.compose.pages.video.components.VideoReplyTitleBar
 import cn.a10miaomiao.bilimiao.compose.pages.video.content.VideoDetailContent
 import cn.a10miaomiao.bilimiao.compose.pages.video.content.VideoReplyContent
 import com.a10miaomiao.bilimiao.comm.delegate.player.BasePlayerDelegate
+import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.delegate.player.VideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.entity.player.PlayListFrom
 import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
@@ -196,8 +199,16 @@ private fun VideoDetailPageContent(
 
     val videoPages = detailData.pages
 
-    val headerCoverHeight = 200.dp
-    val headerHeight = remember(windowInsets.topDp) {
+    // 播放器是否正在播放本视频（竖屏顶部内嵌槽模式）。
+    // 播放中：页面内容区已从播放器内嵌槽下沿开始，封面占位不再保留（高度 0），
+    // 使“详情/评论”内容直接跟随播放器下沿，避免出现播放器高度的空白。
+    val playerState = localPlayerState()
+    val playerStore by rememberInstance<PlayerStore>()
+    val playerStoreState by playerStore.stateFlow.collectAsState()
+    val playingThisVideo =
+        playerStoreState.aid == arcData.aid.toString() && playerState.showPlayer
+    val headerCoverHeight = if (playingThisVideo) 0.dp else 200.dp
+    val headerHeight = remember(playingThisVideo, windowInsets.topDp) {
         windowInsets.topDp.dp + headerCoverHeight
     }
 
@@ -225,6 +236,10 @@ private fun VideoDetailPageContent(
         leftMaxHeight = headerHeight,
         leftContent = { orientation, innerPadding ->
             if (orientation == Orientation.Vertical) {
+                if (playingThisVideo) {
+                    // 播放中：播放器由顶部内嵌槽承载，封面占位不再显示，
+                    // 内容区紧随播放器下沿，避免出现播放器高度的空白
+                } else {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -259,6 +274,7 @@ private fun VideoDetailPageContent(
                         )
                     }
                 }
+            }
             } else {
                 VideoDetailContent(
                     viewModel = viewModel,

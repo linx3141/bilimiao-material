@@ -27,8 +27,12 @@ data class ComposeScaffoldPlayerLayoutState(
         get() = when {
             !showPlayer -> PlayerDisplayMode.Hidden
             fullScreenPlayer -> PlayerDisplayMode.Fullscreen
-            anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
+            // 手机（紧凑窗口）竖屏统一使用顶部内嵌槽播放器：
+            // 播放器画面固定占屏幕顶部，页面内容从画面下方布局滚动，
+            // 页面返回动画只作用于播放器下方的内容区（与其它页面一致）。
+            // 锚点覆盖（AnchorOverlay）仅用于平板/桌面等宽屏布局。
             orientation == ORIENTATION_PORTRAIT -> PlayerDisplayMode.EmbeddedPortrait
+            anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
             orientation == ORIENTATION_LANDSCAPE -> PlayerDisplayMode.FloatingLandscape
             else -> PlayerDisplayMode.Hidden
         }

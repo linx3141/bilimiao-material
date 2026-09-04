@@ -51,8 +51,9 @@ import cn.a10miaomiao.bilimiao.compose.components.layout.PlayerDisplayMode
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.FastForwardIndicator
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.VideoScaffold
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.GestureIndicatorState
+import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.createBrightnessLevelController
+import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.createVolumeLevelController
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.LockableVideoGestureHost
-import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.NoOpLevelController
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rememberGestureIndicatorState
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rememberPlayerFastSkipState
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rememberSwipeSeekerState
@@ -177,8 +178,9 @@ fun BiliVideoScaffold(
     val displayMode = when {
         !playerState.showPlayer -> PlayerDisplayMode.Hidden
         isFullscreen -> PlayerDisplayMode.Fullscreen
-        playerState.anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
+        // 手机（紧凑窗口）竖屏统一使用顶部内嵌槽播放器（与其它页面一致）
         scaffoldOrientation == ORIENTATION_PORTRAIT -> PlayerDisplayMode.EmbeddedPortrait
+        playerState.anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
         scaffoldOrientation == ORIENTATION_LANDSCAPE -> PlayerDisplayMode.FloatingLandscape
         else -> PlayerDisplayMode.Hidden
     }
@@ -195,16 +197,15 @@ fun BiliVideoScaffold(
     val indicatorState = rememberGestureIndicatorState()
 
     // 全屏播放时控制系统栏（状态栏/导航条）显示：
-    // - 控制器隐藏时，状态栏/导航栏均隐藏，实现沉浸式全屏
-    // - 控制器激活显示时，仅显示状态栏（导航栏保持隐藏），且状态栏前景色为白色
+    // - 全屏期间系统状态栏/导航栏恒定隐藏，不随控制器显隐展开：
+    //   点击画面弹出标题/进度条时不再触发系统栏 show/hide，
+    //   避免系统栏展开动画引发的 inset 重布局与掉帧卡顿，保持沉浸式全屏；
+    //   （仍可通过屏幕边缘滑动临时唤出系统栏——系统自带行为）
     // - 退出全屏或组件卸载时，恢复系统栏
-    val controllerVisibility = controllerState.visibility
-    DisposableEffect(isFullscreen, isLocked, controllerVisibility) {
-        val controllerActive = !isLocked &&
-            (controllerVisibility.topBar || controllerVisibility.bottomBar)
+    DisposableEffect(isFullscreen) {
         if (isFullscreen) {
             setPlayerFullscreenSystemBars(
-                statusBarVisible = controllerActive,
+                statusBarVisible = false,
                 navigationBarVisible = false,
             )
         } else {
@@ -332,8 +333,8 @@ fun BiliVideoScaffold(
                         progressSliderState = progressSliderState,
                         locked = isLocked,
                         enableSwipeToSeek = duration > 0,
-                        audioController = NoOpLevelController,
-                        brightnessController = NoOpLevelController,
+                        audioController = createVolumeLevelController(),
+                        brightnessController = createBrightnessLevelController(),
                         playbackSpeedControllerState = null,
                         onTogglePauseResume = {
                             if (isPlaying) playerDelegate.pause() else playerDelegate.resume()

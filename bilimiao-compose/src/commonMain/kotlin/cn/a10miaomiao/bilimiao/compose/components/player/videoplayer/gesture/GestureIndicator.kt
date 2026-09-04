@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
+)
 
 package cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture
 
@@ -28,7 +31,7 @@ import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
@@ -300,12 +303,11 @@ fun GestureIndicator(
                         // 这个 remember 是必要的, 因为 Compose 不会记住 lambda,
                         // 在这个频繁变化的 composable 中会导致性能问题.
                         {
-                            LinearProgressIndicator(
+                            // 音量/亮度值进度条：与播放器进度条一致采用
+                            // Material 3 Expressive 官方波浪样式（不叠加指示器）
+                            LinearWavyProgressIndicator(
                                 progress = { state.progressValue },
                                 modifier = Modifier.width(80.dp),
-                                color = colors.primary,
-                                trackColor = colors.onSurface.copy(alpha = 0.5f),
-                                drawStopIndicator = {},
                             )
                         }
                     }

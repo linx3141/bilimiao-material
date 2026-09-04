@@ -703,8 +703,9 @@ internal fun PlayerLayer(
     val displayMode = when {
         !playerState.showPlayer -> PlayerDisplayMode.Hidden
         fullScreenPlayer -> PlayerDisplayMode.Fullscreen
-        playerState.anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
+        // 手机（紧凑窗口）竖屏统一使用顶部内嵌槽播放器（与其它页面一致）
         orientation == ORIENTATION_PORTRAIT -> PlayerDisplayMode.EmbeddedPortrait
+        playerState.anchorBounds != null -> PlayerDisplayMode.AnchorOverlay
         orientation == ORIENTATION_LANDSCAPE -> PlayerDisplayMode.FloatingLandscape
         else -> PlayerDisplayMode.Hidden
     }

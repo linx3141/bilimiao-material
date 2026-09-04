@@ -993,15 +993,9 @@ object PlayerControllerDefaults {
         showFramePreviewInPopup: Boolean = true,
         touchSeekState: TouchSeekState? = null,
     ) {
-        val cacheProgressInfo by cacheProgressInfoFlow.collectAsState(initial = null)
-        cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.MediaProgressSlider(
+        WavyPlayerProgressSlider(
             state = progressSliderState,
-            cacheProgressInfoFlow = { cacheProgressInfo },
             enabled = enabled,
-            showPreviewTimeTextOnThumb = showPreviewTimeTextOnThumb,
-            framePreview = framePreview,
-            showFramePreviewInPopup = showFramePreviewInPopup,
-            touchSeekState = touchSeekState,
             modifier = modifier,
         )
     }

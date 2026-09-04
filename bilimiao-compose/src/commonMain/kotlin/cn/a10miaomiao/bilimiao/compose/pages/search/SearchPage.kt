@@ -1,23 +1,16 @@
 package cn.a10miaomiao.bilimiao.compose.pages.search
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,24 +23,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.foundation.imePaddingAboveBottomBar
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.navigation.PageNavigation
-import cn.a10miaomiao.bilimiao.compose.common.preference.ExpressivePreferenceItem
-import cn.a10miaomiao.bilimiao.compose.common.preference.LocalListItemShapes
-import cn.a10miaomiao.bilimiao.compose.common.preference.segmentedItemShapes
 import cn.a10miaomiao.bilimiao.compose.components.search.SearchHistoryList
-import org.kodein.di.DI
-import org.kodein.di.DIAware
+import cn.a10miaomiao.bilimiao.compose.components.search.SearchSuggestList
 import org.kodein.di.compose.rememberInstance
-import org.kodein.di.instance
 import kotlinx.serialization.Serializable
 
 /**
- * 独立搜索页面：顶部搜索框 + 单列分段展示搜索历史。
+ * 独立搜索页面：顶部搜索框 + 联想/历史。
+ *
+ * - 输入框为空：展示搜索历史（最近搜索在前，按上次搜索时间排序）；
+ * - 输入关键字（开始搜索）：不再显示历史，展示搜索联想（如输入 AB
+ *   展示 ABC/ABS/ABD…，纯数字时附 AV/SS 快捷词）；
+ * - 提交搜索或点击任意联想/历史项：该词写入历史并置顶，随后进入结果页。
  */
 @Serializable
 class SearchPage : ComposePage {
@@ -58,7 +50,16 @@ class SearchPage : ComposePage {
         val windowInsets = localContentInsets()
         val pageNavigation by rememberInstance<PageNavigation>()
         val history by viewModel.historyListFlow.collectAsState()
+        val suggestList by viewModel.suggestListFlow.collectAsState()
         var keyword by remember { mutableStateOf("") }
+
+        fun search(text: String) {
+            val trimText = text.trim()
+            if (trimText.isEmpty()) return
+            // 每次搜索都更新历史：同词去重并置顶（按上次搜索时间排序）
+            viewModel.addSearchHistory(trimText)
+            pageNavigation.navigate(SearchResultPage(keyword = trimText))
+        }
 
         Column(
             modifier = Modifier
@@ -70,24 +71,32 @@ class SearchPage : ComposePage {
         ) {
             SearchInputBox(
                 keyword = keyword,
-                onKeywordChange = { keyword = it },
-                onSearch = {
-                    val text = keyword.trim()
-                    if (text.isNotEmpty()) {
-                        viewModel.addSearchHistory(text)
-                        pageNavigation.navigate(SearchResultPage(keyword = text))
-                    }
+                onKeywordChange = { text ->
+                    keyword = text
+                    // 开始输入即加载联想；清空时联想随之清空，页面回到历史视图
+                    viewModel.loadSuggestData(text)
                 },
-                onClear = { keyword = "" },
-            )
-            SearchHistoryList(
-                history = history.map { it.text },
-                onKeywordClick = { text ->
-                    pageNavigation.navigate(SearchResultPage(keyword = text))
+                onSearch = { search(keyword) },
+                onClear = {
+                    keyword = ""
+                    viewModel.loadSuggestData("")
                 },
-                onKeywordDelete = viewModel::deleteSearchHistory,
-                onClearAll = viewModel::deleteAllSearchHistory,
             )
+            if (keyword.isBlank()) {
+                // 未开始输入：搜索历史（最近搜索置顶）
+                SearchHistoryList(
+                    history = history.map { it.text },
+                    onKeywordClick = { text -> search(text) },
+                    onKeywordDelete = viewModel::deleteSearchHistory,
+                    onClearAll = viewModel::deleteAllSearchHistory,
+                )
+            } else {
+                // 开始搜索：展示联想建议，历史让位
+                SearchSuggestList(
+                    suggest = suggestList.map { it.text },
+                    onKeywordClick = { text -> search(text) },
+                )
+            }
         }
     }
 }

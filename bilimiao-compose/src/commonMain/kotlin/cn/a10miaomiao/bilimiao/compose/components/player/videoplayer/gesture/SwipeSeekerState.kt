@@ -246,10 +246,10 @@ class SwipeSeekerState internal constructor(
                     properties["seekerState"] = seekerState
                 },
             ) {
-                if (!enabled) {
-                    return@composed Modifier
-                        .trackSwipeSeekCancellation(seekerState, onCancellationChanged)
-                }
+                // enabled 在识别协程内动态读取（不参与 modifier 结构）：
+                // 若随“音量/亮度调节中”等状态卸载/重挂 pointerInput，会向同指针的
+                // 纵向拖动手势发送 cancel，导致音量/亮度拖动被立即打断（10ms 消失）。
+                val currentEnabled by rememberUpdatedState(enabled)
                 Modifier
                     .pointerInput(seekerState, reverseDirection) {
                         awaitPointerEventScope {
@@ -264,7 +264,10 @@ class SwipeSeekerState internal constructor(
                                 val downY = down.position.y
                                 // 按下位置落在系统返回手势区：整次触摸让位，
                                 // 不启动快进/快退、不消费事件，系统边缘返回手势才能接管
-                                if (downX < edgeSlopPx || downX > size.width - edgeSlopPx) {
+                                if (!currentEnabled ||
+                                    downX < edgeSlopPx ||
+                                    downX > size.width - edgeSlopPx
+                                ) {
                                     // 等待该手指抬起/取消，期间不消费任何事件
                                     while (true) {
                                         val event = awaitPointerEvent(PointerEventPass.Final)
