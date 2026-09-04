@@ -83,9 +83,6 @@ import androidx.navigation3.scene.SceneState
 import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.scene.rememberSceneState
-import androidx.navigation3.ui.NavDisplay.popTransitionSpec
-import androidx.navigation3.ui.NavDisplay.predictivePopTransitionSpec
-import androidx.navigation3.ui.NavDisplay.transitionSpec
 import androidx.navigationevent.NavigationEvent
 import androidx.navigationevent.NavigationEventTransitionState.Idle
 import androidx.navigationevent.NavigationEventTransitionState.InProgress
@@ -772,6 +769,9 @@ fun <T : Any> NavDisplay(
             LocalSceneDisplacing provides
                     (transition.currentState != transition.targetState &&
                             targetScene == transition.currentState),
+            // 场景过渡动画（打开/返回/预测性返回）进行中（任意场景）
+            LocalSceneTransitioning provides
+                    (transition.currentState != transition.targetState),
         ) {
             val myZIndex =
                 zIndices.getOrElse(AnimatedSceneKey(targetScene)) { targetZIndex }
@@ -826,7 +826,6 @@ fun <T : Any> NavDisplay(
                 val isSceneTransitioning =
                     transition.currentState != transition.targetState
                 if (isSceneTransitioning &&
-                    LocalDimOnPredictiveBack.current(transition.currentState, transition.targetState) &&
                     transitionEffects.dimAmount > 0f &&
                     myZIndex < topZIndex
                 ) {

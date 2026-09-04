@@ -73,8 +73,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -973,25 +971,16 @@ object PlayerControllerDefaults {
     }
 
     /**
-     * 媒体进度滑块.
+     * 媒体进度滑块：统一使用波浪进度条 [WavyPlayerProgressSlider].
      *
-     * 迁移说明: animeko 版本引用了 PlayerProgressSliderState, MediaCacheProgressInfo,
-     * MediaProgressFramePreviewState, TouchSeekState 等类型.
-     * 这些类型尚未迁移, 此处保留参数签名, 实际渲染由集成层通过 progressSlider lambda 填充.
-     *
-     * @param progressSliderState 占位, 由集成层提供
+     * @param progressSliderState 播放进度状态（含拖动预览/跳转回调）
      * @param enabled 是否启用
      */
     @Composable
     fun MediaProgressSlider(
         progressSliderState: PlayerProgressSliderState,
-        cacheProgressInfoFlow: Flow<MediaCacheProgressInfo?> = flowOf(null),
         modifier: Modifier = Modifier,
         enabled: Boolean = true,
-        showPreviewTimeTextOnThumb: Boolean = true,
-        framePreview: MediaProgressFramePreviewState? = null,
-        showFramePreviewInPopup: Boolean = true,
-        touchSeekState: TouchSeekState? = null,
     ) {
         WavyPlayerProgressSlider(
             state = progressSliderState,
