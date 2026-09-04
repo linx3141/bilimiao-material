@@ -31,6 +31,8 @@ import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.flow.stateMap
 import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
+
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
@@ -215,7 +217,7 @@ private fun TimeRegionDetailPageContent(
                         selected = pagerState.currentPage == index,
                         onClick = {
                             scope.launch {
-                                pagerState.animateScrollToPage(index)
+                                pagerState.springAnimateToPage(index)
                             }
                         },
                     )

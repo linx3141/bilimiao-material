@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
+
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageListener
@@ -181,7 +183,7 @@ private fun UserFavouritePageContent(
                         selected = pagerState.currentPage == 0,
                         onClick = {
                             scope.launch {
-                                pagerState.animateScrollToPage(0)
+                                pagerState.springAnimateToPage(0)
                             }
                         },
                     )
@@ -200,7 +202,7 @@ private fun UserFavouritePageContent(
                         selected = pagerState.currentPage == 1,
                         onClick = {
                             scope.launch {
-                                pagerState.animateScrollToPage(1)
+                                pagerState.springAnimateToPage(1)
                             }
                         },
                     )

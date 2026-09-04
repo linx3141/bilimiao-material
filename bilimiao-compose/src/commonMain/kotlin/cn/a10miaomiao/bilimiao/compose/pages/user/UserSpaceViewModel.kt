@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
 
 class UserSpaceViewModel(
     override val di: DI,
@@ -80,7 +81,7 @@ class UserSpaceViewModel(
 
     suspend fun changeTab(index: Int, animate: Boolean = false) {
         if (animate) {
-            pagerState.animateScrollToPage(index)
+            pagerState.springAnimateToPage(index)
         } else {
             pagerState.scrollToPage(index)
         }

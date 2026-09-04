@@ -27,6 +27,8 @@ import androidx.lifecycle.viewModelScope
 import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
+
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
 import cn.a10miaomiao.bilimiao.compose.pages.rank.content.RankListContent
@@ -130,7 +132,7 @@ private fun RankPageContent(
                         selected = pagerState.currentPage == index,
                         onClick = {
                             scope.launch {
-                                pagerState.animateScrollToPage(index)
+                                pagerState.springAnimateToPage(index)
                             }
                         },
                     )

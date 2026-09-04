@@ -162,7 +162,8 @@ fun UserSpaceIndexContent(
                 num = archiveData.count.toString(),
                 onClick = {
                     scope.launch {
-                        viewModel.changeTab(2)
+                        // 与其它 Tab 切换一致：spring 动画
+                        viewModel.changeTab(2, animate = true)
                     }
                 }
             )

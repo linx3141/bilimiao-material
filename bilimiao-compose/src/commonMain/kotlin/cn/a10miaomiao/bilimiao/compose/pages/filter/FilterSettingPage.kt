@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.DIAware
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
 
 @Serializable
 class FilterSettingPage : ComposePage {
@@ -92,7 +93,7 @@ private fun FilterSettingPageContent(
                 selected = pagerState.currentPage == 0,
                 onClick = {
                     scope.launch {
-                        pagerState.animateScrollToPage(0)
+                        pagerState.springAnimateToPage(0)
                     }
                 },
             )
@@ -111,7 +112,7 @@ private fun FilterSettingPageContent(
                 selected = pagerState.currentPage == 1,
                 onClick = {
                     scope.launch {
-                        pagerState.animateScrollToPage(1)
+                        pagerState.springAnimateToPage(1)
                     }
                 },
             )
@@ -130,7 +131,7 @@ private fun FilterSettingPageContent(
                 selected = pagerState.currentPage == 2,
                 onClick = {
                     scope.launch {
-                        pagerState.animateScrollToPage(2)
+                        pagerState.springAnimateToPage(2)
                     }
                 },
             )
