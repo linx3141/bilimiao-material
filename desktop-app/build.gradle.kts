@@ -53,6 +53,7 @@ kotlin {
                 implementation(libs.mediamp.mpv)
                 // native DLLs for current platform
                 runtimeOnly("org.openani.mediamp:mediamp-mpv-runtime-windows-x64:${libs.versions.mediamp.get()}")
+                runtimeOnly("org.openani.mediamp:mediamp-mpv-runtime-linux-x64:${libs.versions.mediamp.get()}")
 
                 // jna (for window border handling)
                 implementation(libs.jna)

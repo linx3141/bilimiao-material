@@ -32,13 +32,6 @@ plugins {
 
 allprojects {
     configurations.all {
-        resolutionStrategy {
-            // 16 KB 页大小对齐要求：强制使用已对齐的库版本
-            force(
-                "androidx.graphics:graphics-path:1.1.0",
-                "pl.droidsonroids.gif:android-gif-drawable:1.2.32",
-            )
-        }
         resolutionStrategy.dependencySubstitution {
             // This lib is used by com.github.mikaelzero.mojito:SketchImageViewLoader:1.8.7 and only available in bintray
             // It has been moved to mavenCentral with a different module name

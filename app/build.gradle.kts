@@ -96,13 +96,6 @@ android {
         resValues = true
     }
 
-    // 16 KB 页大小兼容：共享库使用未压缩存储（AGP 8.5.1+ 官方建议）
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
-
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -119,36 +112,6 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-    }
-}
-
-// 16 KB 页大小对齐：部分依赖库（datastore/gif/gav1/graphics-path）的
-// ELF 段未按 16 KB 对齐（LOAD/RELRO 的 vaddr 与 p_align），Android 15+
-// 会报对齐检查失败。在原生库合并后统一把 .so 的段重排到 16 KB 对齐
-//（同步更新 section 表、动态段指针与重定位表，保证可正常加载）。
-tasks.whenTaskAdded {
-    if (name.startsWith("merge") && name.endsWith("NativeLibs")) {
-        // 每次构建都重新合并并对齐（避免 UP-TO-DATE 跳过对齐处理）
-        outputs.upToDateWhen { false }
-        doLast {
-            outputs.files.forEach { out ->
-                val libRoot = out.resolve("lib")
-                if (libRoot.exists()) {
-                    libRoot.walkTopDown()
-                        .filter { it.isFile && it.extension == "so" }
-                        .forEach { so ->
-                            ProcessBuilder(
-                                "python3",
-                                rootProject.file("scripts/realign_elf.py").absolutePath,
-                                so.absolutePath,
-                            )
-                                .inheritIO()
-                                .start()
-                                .waitFor()
-                        }
-                }
-            }
-        }
     }
 }
 
