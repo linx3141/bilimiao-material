@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import org.kodein.di.compose.rememberInstance
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -69,6 +70,8 @@ import cn.a10miaomiao.bilimiao.compose.base.ComposePage
 import cn.a10miaomiao.bilimiao.compose.common.ContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.diViewModel
 import cn.a10miaomiao.bilimiao.compose.common.foundation.pagerTabIndicatorOffset
+import cn.a10miaomiao.bilimiao.compose.common.foundation.springAnimateToPage
+
 import cn.a10miaomiao.bilimiao.compose.common.localContentInsets
 import cn.a10miaomiao.bilimiao.compose.common.localPlayerState
 import cn.a10miaomiao.bilimiao.compose.common.mypage.PageConfig
@@ -99,6 +102,7 @@ import com.a10miaomiao.bilimiao.comm.network.BiliGRPCHttp
 import com.a10miaomiao.bilimiao.comm.store.FilterStore
 import com.a10miaomiao.bilimiao.comm.store.PlayListStore
 import com.a10miaomiao.bilimiao.comm.utils.MiaoLogger
+import androidx.navigation3.ui.LocalSceneTransitioning
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -134,12 +138,28 @@ class VideoDetailPage(
         val detailData = viewModel.detailData.collectAsState().value
 
         // 页面返回交给导航层处理（支持预测性返回手势动画），
-        // 关闭播放器逻辑在页面离开组合时执行
+        // 关闭播放器逻辑在页面离开组合时执行。
+        // 预测性返回动画期间，下层页面会被临时“唤醒”组合以渲染预览：
+        // 这种预览组合不注册当前页 aid（否则会把正在播放页的注册值覆盖掉，
+        // 导致返回判定错乱、播放器被误关、后续再无预测动画），
+        // 改为在过渡结束后（本页确认为当前页）再补注册。
+        val sceneTransitioning = LocalSceneTransitioning.current
+        var pendingPageRegister by remember { mutableStateOf(false) }
         DisposableEffect(Unit) {
-            // 每次进入组合都补注册（返回导航复用 ViewModel、不重新加载数据）
-            viewModel.registerPage()
+            if (!sceneTransitioning) {
+                // 每次进入组合都补注册（返回导航复用 ViewModel、不重新加载数据）
+                viewModel.registerPage()
+            } else {
+                pendingPageRegister = true
+            }
             onDispose {
                 viewModel.onPageDispose()
+            }
+        }
+        LaunchedEffect(sceneTransitioning) {
+            if (!sceneTransitioning && pendingPageRegister) {
+                pendingPageRegister = false
+                viewModel.registerPage()
             }
         }
         AnimatedContent(
@@ -374,7 +394,8 @@ private fun VideoDetailPageContent(
                                 selected = selected,
                                 onClick = {
                                     scope.launch {
-                                        pagerState.scrollToPage(index)
+                                        // 与其它 Pager Tab 一致：spring 切换动画
+                                        pagerState.springAnimateToPage(index)
                                     }
                                 },
                             )
@@ -398,7 +419,7 @@ private fun VideoDetailPageContent(
                     enabled = pagerState.currentPage > 0
                 ) {
                     scope.launch {
-                        pagerState.animateScrollToPage(0)
+                        pagerState.springAnimateToPage(0)
                     }
                 }
                 HorizontalPager(
