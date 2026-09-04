@@ -45,6 +45,8 @@ import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -67,15 +69,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
@@ -210,11 +215,13 @@ private fun ThemeSettingPageContent(
     }
     val isDark = when (themeState.darkMode) {
         1 -> false
-        2 -> true
+        2, 6 -> true
         else -> isSystemInDarkTheme()
     }
+    val isAmoled = themeState.darkMode == 6
     val isDynamic = themeState.type == SettingConstants.THEME_TYPE_DYNAMIC_COLOR
     val keyColor = if (isDynamic) 0 else themeState.color
+    val haptic = LocalHapticFeedback.current
 
     Column(
         modifier = Modifier
@@ -229,6 +236,7 @@ private fun ThemeSettingPageContent(
         MonetThemePreviewCard(
             keyColor = keyColor,
             isDark = isDark,
+            isAmoled = isAmoled,
             paletteStyle = paletteStyle,
             colorSpec = colorSpec,
         )
@@ -245,6 +253,7 @@ private fun ThemeSettingPageContent(
                     color = Color.Unspecified,
                     isSelected = isDynamic,
                     isDark = isDark,
+                    isAmoled = isAmoled,
                     paletteStyle = paletteStyle,
                     colorSpec = colorSpec,
                     onClick = {
@@ -257,6 +266,7 @@ private fun ThemeSettingPageContent(
                     color = Color(color),
                     isSelected = !isDynamic && themeState.color == color,
                     isDark = isDark,
+                    isAmoled = isAmoled,
                     paletteStyle = paletteStyle,
                     colorSpec = colorSpec,
                     onClick = {
@@ -272,11 +282,7 @@ private fun ThemeSettingPageContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = "深色模式",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.labelLarge,
-            )
+            // 模式切换按钮组（与 KernelSU 一致：仅图标、无标题）
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
@@ -286,6 +292,7 @@ private fun ThemeSettingPageContent(
                         checked = themeState.darkMode == mode.first,
                         onCheckedChange = {
                             if (it) {
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                 viewModel.setDarkMode(mode.first)
                             }
                         },
@@ -305,13 +312,13 @@ private fun ThemeSettingPageContent(
                 }
             }
 
+            // 配色风格 / 色彩规范（一组分段，与 KernelSU 一致）
             ExpressiveSegmentedColumn(
                 modifier = Modifier.padding(top = 4.dp),
                 entries = listOf(
                     {
                         ExpressiveDropdownPreference(
                             title = "配色风格",
-                            summary = paletteStyle.name,
                             icon = Icons.Rounded.Style,
                             items = viewModel.paletteStyleList.map { it.name },
                             selectedIndex = viewModel.paletteStyleList.indexOf(paletteStyle)
@@ -327,7 +334,6 @@ private fun ThemeSettingPageContent(
                     {
                         ExpressiveDropdownPreference(
                             title = "色彩规范",
-                            summary = colorSpec.name,
                             icon = Icons.Rounded.DesignServices,
                             items = viewModel.colorSpecList.map { it.name },
                             selectedIndex = viewModel.colorSpecList.indexOf(colorSpec)
@@ -340,6 +346,13 @@ private fun ThemeSettingPageContent(
                             },
                         )
                     },
+                ),
+            )
+
+            // 导航栏角标（独立一组，与 KernelSU 一致）
+            ExpressiveSegmentedColumn(
+                modifier = Modifier.padding(top = 4.dp),
+                entries = listOf(
                     {
                         ExpressivePreferenceItem(
                             title = { Text("导航栏角标") },
@@ -358,6 +371,13 @@ private fun ThemeSettingPageContent(
                             },
                         )
                     },
+                ),
+            )
+
+            // 预测性返回手势（独立一组，与 KernelSU 一致）
+            ExpressiveSegmentedColumn(
+                modifier = Modifier.padding(top = 4.dp),
+                entries = listOf(
                     {
                         ExpressivePreferenceItem(
                             title = { Text("预测性返回手势") },
@@ -383,47 +403,58 @@ private fun ThemeSettingPageContent(
                             },
                         )
                     },
-                    {
-                        ExpressivePreferenceItem(
-                            title = {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                    ) {
-                                        Text(
-                                            text = "页面缩放",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        Text(
-                                            text = "调整页面显示比例",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Text(
-                                        text = "${(pageScale * 100).toInt()}%",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            },
-                            summary = {
-                                Slider(
-                                    value = pageScale,
-                                    onValueChange = { pageScale = it },
-                                    onValueChangeFinished = { viewModel.setPageScale(pageScale) },
-                                    valueRange = 0.8f..1.1f,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            },
-                        )
-                    },
                 ),
             )
+
+            // 页面缩放（独立卡片，与 KernelSU 的 TonalCard 结构一致）
+            Card(
+                modifier = Modifier.padding(top = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceBright,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.AspectRatio,
+                            contentDescription = "页面缩放",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "页面缩放",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "调整页面显示比例",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = "${(pageScale * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Slider(
+                        value = pageScale,
+                        onValueChange = { pageScale = it },
+                        onValueChangeFinished = { viewModel.setPageScale(pageScale) },
+                        valueRange = 0.8f..1.1f,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
         // 滚动内容底部间距：随内容滚动，避免最后一项直接贴到底栏
         Spacer(modifier = Modifier.height(16.dp))
@@ -438,7 +469,6 @@ private fun ThemeSettingPageContent(
 @Composable
 private fun ExpressiveDropdownPreference(
     title: String,
-    summary: String,
     icon: ImageVector,
     items: List<String>,
     selectedIndex: Int,
@@ -465,7 +495,6 @@ private fun ExpressiveDropdownPreference(
     Box {
         ExpressivePreferenceItem(
             title = { Text(title) },
-            summary = { Text(summary) },
             icon = {
                 Icon(
                     imageVector = icon,
@@ -473,6 +502,14 @@ private fun ExpressiveDropdownPreference(
                 )
             },
             onClick = { expanded = true },
+            trailing = {
+                Text(
+                    text = items.getOrNull(selectedIndex) ?: "",
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth(0.3f),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
             modifier = Modifier.onGloballyPositioned { coords ->
                 val rect = coords.boundsInWindow()
                 anchorBounds = IntRect(

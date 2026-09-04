@@ -64,8 +64,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import cn.a10miaomiao.bilimiao.compose.rememberBilimiaoColorScheme
 import cn.a10miaomiao.bilimiao.compose.common.isCompactWindow
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import androidx.compose.ui.graphics.toArgb
@@ -125,12 +123,13 @@ fun expressiveToggleButtonColors(
 )
 
 /**
- * 主题预览卡片（改编自 KernelSU ThemePreviewCard）。
+ * 主题预览卡片（与 KernelSU ThemePreviewCard 一致）。
  */
 @Composable
 fun MonetThemePreviewCard(
     keyColor: Int,
     isDark: Boolean,
+    isAmoled: Boolean = false,
     paletteStyle: PaletteStyle,
     colorSpec: ColorSpec.SpecVersion,
 ) {
@@ -144,6 +143,7 @@ fun MonetThemePreviewCard(
     val colorScheme = rememberBilimiaoColorScheme(
         seedColor = if (keyColor == 0) Color.Unspecified else Color(keyColor),
         isDark = isDark,
+        isAmoled = isAmoled,
         paletteStyle = paletteStyle,
         colorSpec = colorSpec,
     )
@@ -253,36 +253,31 @@ fun MonetThemePreviewCard(
 }
 
 /**
- * 主题色选择按钮（改编自 KernelSU ColorButtonMaterial）。
+ * 主题色选择按钮（与 KernelSU ColorButtonMaterial 完全一致）。
+ *
+ * 与 KernelSU 相同：每个按钮都按所选种子色 + 明暗 + 配色风格/规范
+ * 计算完整莫奈 ColorScheme（经全局缓存，15+ 个按钮不重复计算），
+ * 半圆色块取 scheme 的 primaryContainer/tertiaryContainer，
+ * 选中环/圆点/勾选图标取 primary/onPrimary。
  */
 @Composable
 fun MonetColorButton(
     color: Color,
     isSelected: Boolean,
     isDark: Boolean,
+    isAmoled: Boolean = false,
     paletteStyle: PaletteStyle,
     colorSpec: ColorSpec.SpecVersion,
     onClick: () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    // 轻量派生：按钮只需种子色的几个变体，不再计算完整莫奈配色
-    // （主题页 15+ 个按钮若各自计算完整 ColorScheme 会卡顿）
-    val seed = if (color == Color.Unspecified) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        color
-    }
-    val primaryContainer = lerp(
-        seed,
-        if (isDark) Color.Black else Color.White,
-        if (isDark) 0.35f else 0.45f,
+    val colorScheme = rememberBilimiaoColorScheme(
+        seedColor = color,
+        isDark = isDark,
+        isAmoled = isAmoled,
+        paletteStyle = paletteStyle,
+        colorSpec = colorSpec,
     )
-    val tertiaryContainer = lerp(
-        seed,
-        if (isDark) Color.Black else Color.White,
-        if (isDark) 0.55f else 0.25f,
-    )
-    val onPrimary = if (seed.luminance() > 0.5f) Color.Black else Color.White
 
     Surface(
         onClick = {
@@ -290,19 +285,19 @@ fun MonetColorButton(
             onClick()
         },
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = colorScheme.surfaceContainer,
         modifier = Modifier.size(72.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Canvas(modifier = Modifier.size(48.dp)) {
                 drawArc(
-                    color = primaryContainer,
+                    color = colorScheme.primaryContainer,
                     startAngle = 180f,
                     sweepAngle = 180f,
                     useCenter = true
                 )
                 drawArc(
-                    color = tertiaryContainer,
+                    color = colorScheme.tertiaryContainer,
                     startAngle = 0f,
                     sweepAngle = 180f,
                     useCenter = true
@@ -325,19 +320,19 @@ fun MonetColorButton(
                     Box(
                         modifier = Modifier
                             .size(56.dp)
-                            .border(2.dp, seed, CircleShape),
+                            .border(2.dp, colorScheme.primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
                                 .clip(CircleShape)
-                                .background(seed, CircleShape)
+                                .background(colorScheme.primary, CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Check,
                                 contentDescription = null,
-                                tint = onPrimary,
+                                tint = colorScheme.onPrimary,
                                 modifier = Modifier
                                     .align(Alignment.Center)
                                     .size(16.dp)
@@ -353,7 +348,7 @@ fun MonetColorButton(
                     Box(
                         modifier = Modifier
                             .size(20.dp)
-                            .background(seed, CircleShape)
+                            .background(colorScheme.primary, CircleShape)
                     )
                 }
             }
