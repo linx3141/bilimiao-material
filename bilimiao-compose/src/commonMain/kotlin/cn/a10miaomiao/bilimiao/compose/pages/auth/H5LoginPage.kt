@@ -81,7 +81,7 @@ private class H5LoginPageViewModel(
             |c_locale/zh_CN
             |s_locale/zh_CN
             |disable_rcmd/0
-        """.trimMargin().replace("\n", " ")
+        """.trimMargin().replace("\n", "")
 
     private val userStore by instance<UserStore>()
     private val pageNavigation by instance<PageNavigation>()

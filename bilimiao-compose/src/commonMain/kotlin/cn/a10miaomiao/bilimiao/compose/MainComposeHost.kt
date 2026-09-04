@@ -116,6 +116,7 @@ import org.kodein.di.compose.rememberInstance
 import org.kodein.di.compose.subDI
 import org.kodein.di.compose.withDI
 
+
 class MainComposeNavigator(
     internal val launchUrl: (String) -> Unit,
     internal val scannerLauncher: (callback: (result: String) -> Unit) -> Boolean = { false },
@@ -347,6 +348,7 @@ fun MainComposeHost(
                     currentTopPage is VideoDetailPage &&
                     currentVideoPageAid == playingAid &&
                     bottomBar.currentBackStack.size > 1
+
                 // "忽略返回手势"关闭（默认）时：正在播放且当前页面不是
                 // 正在播放视频的详情页/评论页，则关闭播放器
                 // 以页面/注册状态变化为触发（不含播放器开关），避免"稍后再看"等
@@ -593,9 +595,10 @@ fun MyNavHost(
             it::class == bottomBar.topLevelRoute::class
         }
         if (target < 0) return@LaunchedEffect
-        // 与 KernelSU Manager 完全一致：按像素距离 animateScrollBy 滚动，
-        // 会平滑经过中间所有页；不能用 animateScrollToPage——它距离太远时会
-        // 预跳到邻近页再动画，造成"先闪现到中间页"。
+        // 与 KernelSU Manager（#3492）完全一致：按像素距离逐帧 scrollBy 滚动，
+        // 使用弹簧动画（stiffness 322.2 / dampingRatio 0.9），会平滑经过中间所有页；
+        // 不能用 animateScrollToPage——它距离太远时会预跳到邻近页再动画，
+        // 造成"先闪现到中间页"。
         // 首页内时光姬/推荐/热门等 Tab 通过 animateTabSwitchTo 复用同一套动画。
         pagerState.animateTabSwitchTo(target)
     }
