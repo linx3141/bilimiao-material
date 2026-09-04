@@ -26,4 +26,6 @@ data class PlayerSourceState(
     val subtitleList: List<SubtitleSourceInfo> = emptyList(),
     /** 当前选中的字幕（null 表示关闭字幕） */
     val currentSubtitle: SubtitleSourceInfo? = null,
+    /** 当前选中字幕已解析的字幕行（null 表示未加载/加载失败/未选中） */
+    val subtitleLines: List<SubtitleLineInfo>? = null,
 )

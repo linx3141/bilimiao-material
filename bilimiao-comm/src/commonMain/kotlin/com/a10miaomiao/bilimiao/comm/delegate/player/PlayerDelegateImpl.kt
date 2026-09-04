@@ -4,8 +4,11 @@ import cn.a10miaomiao.bilimiao.danmaku.parser.BaseDanmakuParser
 import com.a10miaomiao.bilimiao.comm.datastore.SettingConstants
 import com.a10miaomiao.bilimiao.comm.datastore.SettingPreferences
 import com.a10miaomiao.bilimiao.comm.datastore.mapPreferences
+import com.a10miaomiao.bilimiao.comm.entity.player.SubtitleJsonInfo
 import com.a10miaomiao.bilimiao.comm.entity.player.toVideoPlayerSource
 import com.a10miaomiao.bilimiao.comm.network.BiliApiService
+import com.a10miaomiao.bilimiao.comm.network.MiaoHttp
+import com.a10miaomiao.bilimiao.comm.network.MiaoHttp.Companion.json
 import com.a10miaomiao.bilimiao.comm.proxy.ProxyServerInfo
 import com.a10miaomiao.bilimiao.comm.store.PlayerStore
 import com.a10miaomiao.bilimiao.comm.store.PlayListStore
@@ -16,6 +19,7 @@ import com.a10miaomiao.bilimiao.comm.delegate.player.entity.PlaybackStatus
 import com.a10miaomiao.bilimiao.comm.delegate.player.entity.PlayerSourceIds
 import com.a10miaomiao.bilimiao.comm.delegate.player.entity.PlayerSourceInfo
 import com.a10miaomiao.bilimiao.comm.delegate.player.entity.PlayerSourceState
+import com.a10miaomiao.bilimiao.comm.delegate.player.entity.SubtitleLineInfo
 import com.a10miaomiao.bilimiao.comm.delegate.player.entity.SubtitleSourceInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -138,14 +142,21 @@ class PlayerDelegateImpl(
             launch(Dispatchers.IO) {
                 try {
                     val subtitles = source.getSubtitles()
+                    val default = selectDefaultSubtitle(subtitles)
                     _sourceState.update {
                         it.copy(
                             subtitleList = subtitles,
-                            currentSubtitle = selectDefaultSubtitle(subtitles),
+                            currentSubtitle = default,
+                            subtitleLines = null,
                         )
                     }
+                    if (default != null) {
+                        loadSubtitleLines(default)
+                    }
                 } catch (e: Exception) {
-                    _sourceState.update { it.copy(subtitleList = emptyList(), currentSubtitle = null) }
+                    _sourceState.update {
+                        it.copy(subtitleList = emptyList(), currentSubtitle = null, subtitleLines = null)
+                    }
                 }
             }
 
@@ -471,10 +482,49 @@ class PlayerDelegateImpl(
     }
 
     override fun setSubtitle(subtitle: SubtitleSourceInfo?) {
-        _sourceState.update { it.copy(currentSubtitle = subtitle) }
-        // TODO: 字幕渲染需接入播放管线。安卓 ExoPlayer 可通过 UriMediaData.extraFiles
-        // 挂载外部字幕（参考 animeko SubtitleSwitcher），桌面 mpv（mediamp 0.1.14）
-        // 尚未支持 extraFiles，后续随播放管线升级再接入实际字幕绘制。
+        _sourceState.update { it.copy(currentSubtitle = subtitle, subtitleLines = null) }
+        if (subtitle == null) return
+        coroutineScope.launch(Dispatchers.IO) {
+            loadSubtitleLines(subtitle)
+        }
+    }
+
+    /**
+     * 拉取并解析 CC 字幕 JSON，成功后写入 [PlayerSourceState.subtitleLines]。
+     * 加载期间若用户已切换到其他字幕/关闭字幕，则丢弃本次结果。
+     */
+    private suspend fun loadSubtitleLines(subtitle: SubtitleSourceInfo) {
+        val lines = try {
+            // CC 字幕直链为 http 明文,安卓网络安全策略禁止明文,
+            // 统一升级为 https 拉取
+            val subtitleUrl = if (subtitle.subtitle_url.startsWith("http://")) {
+                "https://" + subtitle.subtitle_url.removePrefix("http://")
+            } else {
+                subtitle.subtitle_url
+            }
+            val res = MiaoHttp.request { url = subtitleUrl }.awaitCall()
+            if (!res.isSuccessful) return
+            val json: SubtitleJsonInfo = res.json()
+            json.body.mapNotNull {
+                val text = it.content.trim()
+                if (text.isEmpty() || it.to <= it.from) {
+                    null
+                } else {
+                    SubtitleLineInfo(
+                        fromMs = (it.from * 1000).toLong(),
+                        toMs = (it.to * 1000).toLong(),
+                        text = text,
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return
+        }
+        // 仅当用户仍选中该字幕时写入
+        _sourceState.update {
+            if (it.currentSubtitle == subtitle) it.copy(subtitleLines = lines) else it
+        }
     }
 
     /**
@@ -541,6 +591,7 @@ class PlayerDelegateImpl(
                 danmakuParser = null,
                 subtitleList = emptyList(),
                 currentSubtitle = null,
+                subtitleLines = null,
             )
         }
         _currentPosition.value = 0L

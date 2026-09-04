@@ -58,7 +58,6 @@ import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rem
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rememberPlayerFastSkipState
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.gesture.rememberSwipeSeekerState
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.MediaProgressIndicatorText
-import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.MediaProgressSliderDefaults
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.PlayerControllerBar
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.PlayerControllerDefaults
 import cn.a10miaomiao.bilimiao.compose.components.player.videoplayer.progress.PlayerProgressSliderState
@@ -151,6 +150,7 @@ fun BiliVideoScaffold(
     val danmakuParser = sourceState.danmakuParser
     val subtitleList = sourceState.subtitleList
     val currentSubtitle = sourceState.currentSubtitle
+    val subtitleLines = sourceState.subtitleLines
 
     // 播放器控制依赖的服务（通过 Kodein 注入）
     val userStore: UserStore by rememberInstance()
@@ -303,14 +303,24 @@ fun BiliVideoScaffold(
                 )
             },
             video = {
-                VideoPlayer(
-                    player = p,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                // 字幕叠加在视频画面之上、弹幕层之下
+                Box(modifier = Modifier.fillMaxSize()) {
+                    VideoPlayer(
+                        player = p,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    SubtitleOverlay(
+                        positionMillis = currentPosition,
+                        lines = subtitleLines,
+                        isFullscreen = isFullscreen,
+                        modifier = Modifier.matchParentSize(),
+                    )
+                }
             },
             danmakuHost = {
                 DanmakuOverlay(
                     currentPosition = currentPosition,
+                    playbackSpeed = playbackSpeed,
                     isPlaying = isPlaying,
                     danmakuParser = danmakuParser,
                     visible = danmakuVisible,
@@ -401,7 +411,6 @@ fun BiliVideoScaffold(
                     progressSlider = {
                         PlayerControllerDefaults.MediaProgressSlider(
                             progressSliderState = progressSliderState,
-                            cacheProgressInfoFlow = kotlinx.coroutines.flow.flowOf(null),
                         )
                     },
                     danmakuEditor = {
@@ -465,7 +474,6 @@ fun BiliVideoScaffold(
             detachedProgressSlider = {
                 PlayerControllerDefaults.MediaProgressSlider(
                     progressSliderState = progressSliderState,
-                    cacheProgressInfoFlow = kotlinx.coroutines.flow.flowOf(null),
                 )
             },
             floatingBottomEnd = {

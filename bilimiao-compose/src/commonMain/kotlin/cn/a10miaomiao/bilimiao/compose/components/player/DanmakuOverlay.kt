@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
  * 每帧由 [withFrameNanos] 驱动重绘，与视频播放器 Canvas 同步。
  *
  * @param currentPosition 当前播放位置（毫秒）
+ * @param playbackSpeed 当前播放倍速（长按加速/菜单倍速等，供弹幕时间轴精确外推）
  * @param isPlaying 是否正在播放
  * @param danmakuParser 弹幕解析器
  * @param visible 弹幕是否可见
@@ -38,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 @Composable
 fun DanmakuOverlay(
     currentPosition: Long,
+    playbackSpeed: Float,
     isPlaying: Boolean,
     danmakuParser: BaseDanmakuParser?,
     visible: Boolean = true,
@@ -60,6 +62,7 @@ fun DanmakuOverlay(
         val eng = DanmakuEngine(scope)
         eng.nonBlockModeEnable = true
         eng.idleSleep = false
+        eng.externalPlayerSpeed = playbackSpeed
         eng.setConfig(context)
         eng.setParser(parser)
         eng.setCallback(object : DanmakuEngine.Callback {
@@ -84,6 +87,11 @@ fun DanmakuOverlay(
         } else {
             eng.pause()
         }
+    }
+
+    // 同步播放倍速（长按加速开始/结束、菜单改倍速都会触发）
+    LaunchedEffect(playbackSpeed) {
+        engine.value?.let { it.externalPlayerSpeed = playbackSpeed }
     }
 
     // 释放引擎

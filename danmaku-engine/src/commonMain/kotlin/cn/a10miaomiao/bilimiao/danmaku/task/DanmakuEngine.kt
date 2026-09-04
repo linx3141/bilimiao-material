@@ -102,12 +102,24 @@ class DanmakuEngine(
     /** 最近一次推断的播放倍速（不平滑，直接用最近一次的值） */
     private var lastInferredSpeed: Float = 1.0f
 
+    /** 外部播放器实际倍速（由 UI 线程写入；<=0 时退回位置增量推断） */
+    @Volatile
+    var externalPlayerSpeed: Float = -1f
+
+
+
 
     /** 上次同步的播放器位置，用于检测位置是否真正变化 */
     private var lastSyncedPosition: Long = -1L
 
+    /** 自走时钟：上一帧 wall clock（用于按真实墙钟×倍速推进弹幕时间轴） */
+    private var lastTickWallTime: Long = 0L
+
     /** 上次播放器位置对应的 wall clock，用于插值估算实时位置 */
     private var lastSyncedWallTime: Long = 0L
+
+    /** 自走时钟当前使用的帧速度 */
+    private var lastTickSpeed: Float = 1.0f
 
     // endregion
 
@@ -268,6 +280,8 @@ class DanmakuEngine(
         lastSyncedPosition = -1
         lastSyncedWallTime = 0
         lastInferredSpeed = 1.0f
+        lastTickWallTime = 0
+        lastTickSpeed = 1.0f
         drawTask?.start()
         notifyRendering()
         mInSeekingAction = false
@@ -520,29 +534,31 @@ class DanmakuEngine(
         if (!mInSeekingAction && !mInSyncAction) {
             mInSyncAction = true
 
-            val now = PlatformClock.uptimeMillis()
-
             // 暂停状态：不推进 timer，但仍绘制当前帧（显示静态弹幕）
             if (!quitFlag) {
-                // 播放器位置同步
+                val now = PlatformClock.uptimeMillis()
+                // 播放器位置采样：仅用于检测 seek/换集等大跳变。
+                // 弹幕时间轴为自走时钟（下方按墙钟×倍速推进），
+                // 播放位置样本不参与日常同步（参照 canvas_danmaku：
+                // 弹幕与播放器位置解耦，变速由时长换算，seek 由外部显式处理）
                 val extPos = externalPlayerPosition
                 if (extPos >= 0 && extPos != lastSyncedPosition) {
-                    if (lastSyncedPosition >= 0 && lastSyncedWallTime > 0) {
-                        val posDelta = extPos - lastSyncedPosition
-                        val wallDelta = now - lastSyncedWallTime
-                        // 推断实际播放倍速：播放器位置增量 / wall clock 增量
-                        if (wallDelta > 0 && posDelta >= 0) {
-                            lastInferredSpeed = posDelta.toFloat() / wallDelta.toFloat()
-                            if (lastInferredSpeed < 0.1f) lastInferredSpeed = 0.1f
-                            if (lastInferredSpeed > 16f) lastInferredSpeed = 16f
-                        }
-                    }
+                    val prevPos = lastSyncedPosition
+                    val prevWall = lastSyncedWallTime
                     lastSyncedPosition = extPos
                     lastSyncedWallTime = now
-
-                    val syncDelta = extPos - timer.currMillisecond
-                    if (kotlin.math.abs(syncDelta) > 2000) {
-                        // 大偏差：播放器 seek 或缓冲跳转，直接对齐
+                    val needAlign: Boolean
+                    if (prevPos < 0 || prevWall <= 0) {
+                        // 首个样本：续播/从中间开始播放时对齐弹幕时间轴
+                        needAlign = kotlin.math.abs(extPos - timer.currMillisecond) > 600
+                    } else {
+                        val wallDelta = now - prevWall
+                        val jump = extPos - prevPos
+                        // 相邻样本差显著且时间间隔正常（排除暂停/恢复的边界）
+                        needAlign = wallDelta in 1..1500 && kotlin.math.abs(jump) > 600
+                    }
+                    if (needAlign) {
+                        // seek/换集/续播：弹幕时间轴直接对齐新位置
                         timer.update(extPos)
                         mTimeBase = now
                         mRemainingTime = 0
@@ -551,37 +567,25 @@ class DanmakuEngine(
                     }
                 }
 
-                // 计算目标弹幕时间：
-                // 以最近一次播放器位置为锚点，用 wall clock 和推断倍速线性插值
-                // targetTime = extPos + (now - lastSyncedWallTime) * speed
-                val targetTime = if (lastSyncedPosition >= 0 && lastSyncedWallTime > 0) {
-                    lastSyncedPosition + ((now - lastSyncedWallTime) * lastInferredSpeed).toLong()
-                } else {
-                    now - mTimeBase
+                // 生效速度：外部倍速（长按加速/菜单倍速），缺省 1.0
+                val extSpeed = externalPlayerSpeed
+                val speedUsed: Float = if (extSpeed > 0f) extSpeed else 1.0f
+                if (speedUsed > 0f) {
+                    lastTickSpeed = speedUsed
                 }
 
-                // DFM 原始平滑逻辑：逐步逼近 targetTime
-                var gapTime = targetTime - timer.currMillisecond
-                val averageTime = maxOf(FRAME_UPDATE_RATE, minOf(CORDON_TIME, getAverageRenderingTime()))
-                val d: Long
-                if (gapTime > 2000 || mRenderingState.consumingTime > CORDON_TIME) {
-                    d = gapTime
-                    gapTime = 0
-                    synchronized(mDrawTimes) { mDrawTimes.clear() }
+                // 自走推进：弹幕时间轴按 真实墙钟 × 播放速度 前进，
+                // 播放速度变化（长按加速/恢复、菜单倍速）时帧增量随之变化，
+                // 时间轴连续不回退
+                if (lastTickWallTime <= 0) {
+                    lastTickWallTime = now
                 } else {
-                    var dd = averageTime + gapTime / FRAME_UPDATE_RATE
-                    dd = maxOf(FRAME_UPDATE_RATE, dd)
-                    dd = minOf(CORDON_TIME, dd)
-                    val a = dd - mLastDeltaTime
-                    if (a > 3 && a < 8 && mLastDeltaTime >= FRAME_UPDATE_RATE && mLastDeltaTime <= CORDON_TIME) {
-                        dd = mLastDeltaTime
+                    val dt = now - lastTickWallTime
+                    lastTickWallTime = now
+                    if (dt > 0 && dt < 500) {
+                        timer.add((dt * lastTickSpeed).toLong())
                     }
-                    gapTime -= dd
-                    mLastDeltaTime = dd
-                    d = dd
                 }
-                mRemainingTime = gapTime
-                timer.add(d)
             }
 
             mInSyncAction = false
