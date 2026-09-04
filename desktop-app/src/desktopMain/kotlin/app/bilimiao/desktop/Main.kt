@@ -178,9 +178,11 @@ fun main() {
             // Handle Windows window proc
             HandleWindowsWindowProc(desktopWindow, this)
 
-            // Setup borderless window (DWM shadow)
+            // Setup borderless window (DWM shadow, 仅 Windows)
             LaunchedEffect(Unit) {
-                WindowsWindowUtils.instance.setupBorderlessWindow(windowHandle)
+                if (System.getProperty("os.name").lowercase().contains("win")) {
+                    WindowsWindowUtils.instance.setupBorderlessWindow(windowHandle)
+                }
             }
 
             val platformContext = remember { DesktopPlatformContext() }
