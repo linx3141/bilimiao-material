@@ -216,6 +216,9 @@ class PlayerDelegateImpl(
                 // playUri 只设置媒体数据（状态变为 READY），需要调用 resume 开始播放
                 player.resume()
                 _playbackState.update { it.copy(status = PlaybackStatus.Playing) }
+                // 通知平台媒体会话：播放器就绪 + 元数据（标题/封面）
+                notifyMediaPlayerReady(player)
+                notifyMediaPlayerMeta(source.title, source.coverUrl)
 
                 // 播放历史恢复
                 if (sourceInfo.lastPlayCid == source.id

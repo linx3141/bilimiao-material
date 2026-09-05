@@ -89,6 +89,8 @@ import org.kodein.di.DIAware
 import org.kodein.di.bindSingleton
 import org.kodein.di.instance
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
+import com.a10miaomiao.bilimiao.comm.delegate.player.mediaPlayerReadyListener
+import com.a10miaomiao.bilimiao.comm.delegate.player.mediaPlayerMetaListener
 
 class MainActivity : ComponentActivity(), DIAware {
 
@@ -197,6 +199,25 @@ class MainActivity : ComponentActivity(), DIAware {
         super.onCreate(savedInstanceState)
         // 设置 ActivityHolder 供 FullscreenController 调用 requestedOrientation
         com.a10miaomiao.bilimiao.comm.delegate.player.ActivityHolder.set(this)
+
+        // 媒体会话接入：播放器就绪后交给 PlaybackService（系统媒体控件/通知/保活）
+        mediaPlayerReadyListener = { mp ->
+            runOnUiThread {
+                val exo = com.a10miaomiao.bilimiao.comm.delegate.player.mediampExoPlayerOf(mp)
+                    ?: return@runOnUiThread
+                val intent = Intent(this, PlaybackService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+                PlaybackService.attachPlayer(exo)
+                PlaybackService.instance?.setPlayerDelegate(basePlayerDelegate)
+            }
+        }
+        mediaPlayerMetaListener = { title, coverUrl ->
+            PlaybackService.instance?.updateMediaMeta(title, coverUrl)
+        }
         themeDelegate.onCreate(savedInstanceState)
 
         BilimiaoStatService.setAuthorizedState(this, false)

@@ -9,6 +9,24 @@ import org.openani.mediamp.source.UriMediaData
 import com.a10miaomiao.bilimiao.comm.platform.PlatformProviders
 import com.a10miaomiao.bilimiao.comm.platform.AndroidPlatformContext
 
+/** 播放器就绪监听（app 层注册，用于接入 PlaybackService 媒体会话） */
+var mediaPlayerReadyListener: ((MediampPlayer) -> Unit)? = null
+
+/** 媒体元数据监听（标题/封面，供媒体通知展示） */
+var mediaPlayerMetaListener: ((title: String, coverUrl: String) -> Unit)? = null
+
+/** 获取安卓播放器底层的 ExoPlayer（供 app 层媒体会话接入；非 ExoPlayer 实现返回 null） */
+fun mediampExoPlayerOf(player: MediampPlayer): androidx.media3.exoplayer.ExoPlayer? =
+    (player as? BiliExoPlayerMediampPlayer)?.exoPlayer
+
+actual fun notifyMediaPlayerReady(player: MediampPlayer) {
+    mediaPlayerReadyListener?.invoke(player)
+}
+
+actual fun notifyMediaPlayerMeta(title: String, coverUrl: String) {
+    mediaPlayerMetaListener?.invoke(title, coverUrl)
+}
+
 /**
  * 安卓端 actual：创建 BiliExoPlayerMediampPlayer
  *

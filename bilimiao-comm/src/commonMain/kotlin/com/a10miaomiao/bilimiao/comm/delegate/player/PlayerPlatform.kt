@@ -19,6 +19,17 @@ import org.openani.mediamp.source.UriMediaData
 expect fun createMediampPlayer(): MediampPlayer
 
 /**
+ * 通知平台：播放器实例已就绪（用于接入系统媒体会话/媒体通知）。
+ * 安卓由 MainActivity 注册监听并交给 PlaybackService；桌面 no-op。
+ */
+expect fun notifyMediaPlayerReady(player: MediampPlayer)
+
+/**
+ * 通知平台：当前播放媒体元数据变化（标题/封面），供媒体通知展示。
+ */
+expect fun notifyMediaPlayerMeta(title: String, coverUrl: String)
+
+/**
  * 设置音视频分离的媒体数据（B站 DASH 格式常见：视频流 + 独立音频流）
  *
  * - 安卓 ExoPlayer：通过 MergingMediaSource 合并，UriMediaData 只承载视频流，

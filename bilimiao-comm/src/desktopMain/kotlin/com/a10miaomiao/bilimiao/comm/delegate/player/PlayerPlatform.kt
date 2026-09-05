@@ -8,6 +8,14 @@ import org.openani.mediamp.source.UriMediaData
 /**
  * 桌面端 actual：创建 MpvMediampPlayer 并加载 mpv native 库
  */
+actual fun notifyMediaPlayerReady(player: MediampPlayer) {
+    // 桌面端无需系统媒体会话
+}
+
+actual fun notifyMediaPlayerMeta(title: String, coverUrl: String) {
+    // 桌面端无需系统媒体会话
+}
+
 actual fun createMediampPlayer(): MediampPlayer {
     initMpvNativeLibraries()
     return MpvMediampPlayer(Unit, kotlinx.coroutines.Dispatchers.Main)
