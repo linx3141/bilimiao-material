@@ -22,11 +22,11 @@ bilimiao原为哔哩哔哩时光机，原始功能主要为查看各个分区在
 
 本项目使用安卓原生技术开发，后续UI将逐步改用Jetpack Compose。
 
+本版本界面全面 Material 3 Expressive 化
+
 ### 下载及使用
 #### 下载
-1. 从[10miaomiao.cn](https://10miaomiao.cn/project/1)下载
-2. 从[GithubRelease](https://github.com/10miaomiao/bilimiao2/releases)下载
-3. 从[GiteeRelease](https://gitee.com/10miaomiao/bilimiao2/releases)下载
+1. 从[GithubRelease](https://github.com/10miaomiao/bilimiao2/releases)下载
 
 [<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on-zh-hans.png"
     alt="下载应用请到 F-Droid"
