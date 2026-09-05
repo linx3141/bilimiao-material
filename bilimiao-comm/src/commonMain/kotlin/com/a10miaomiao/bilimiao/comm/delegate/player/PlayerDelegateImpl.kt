@@ -87,8 +87,9 @@ class PlayerDelegateImpl(
     private val _currentPosition = MutableStateFlow(0L)
     override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
 
-    /** 用户手动 seek 到结尾附近（视为"手动结束"，不触发自动连播） */
-    private var manualEndSeek = false
+    /** 最近一次手动 seek 的时间戳（拖动/点按进度条后短暂抑制完成检测，避免拖到
+     * 结尾时立刻触发连播；暂停拖到结尾则保持暂停，待用户播放后才自然结束） */
+    private var lastManualSeekAt = -1L
 
     // 分段播放状态
     private var segmentUrls = listOf<String>()
@@ -115,7 +116,7 @@ class PlayerDelegateImpl(
 
     private fun loadAndPlay(source: BasePlayerSource) {
         val player = _mediampPlayer ?: return
-        manualEndSeek = false
+        lastManualSeekAt = -1L
         // 先停止之前的播放
         progressJob?.cancel()
         player.stopPlayback()
@@ -343,16 +344,21 @@ class PlayerDelegateImpl(
                         if (segmentUrls.isNotEmpty() && currentSegmentIndex < segmentUrls.size - 1) {
                             loadNextSegment(player)
                         } else if (_playbackState.value.status != PlaybackStatus.Completed) {
-                            // 只有"自然播放到结尾"才尝试自动连播：
-                            // 手动拖到结尾(manualEndSeek)或暂停状态下到结尾都不切换，
-                            // 而是停在"播放完成"页；连播成功时不置 Completed(避免完成页闪现)
-                            val naturalEnd = !manualEndSeek &&
-                                _playbackState.value.status == PlaybackStatus.Playing
-                            val switched = naturalEnd && autoNextIfAny()
-                            if (!switched) {
-                                _playbackState.update { it.copy(status = PlaybackStatus.Completed) }
+                            // 手动 seek 后短暂抑制（拖动到结尾不立即触发）
+                            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+                            if (now - lastManualSeekAt >= 2000) {
+                                // 仅"播放中自然到达结尾"才结束/连播；
+                                // 暂停拖到结尾停在原地，用户点播放后自然结束
+                                if (_playbackState.value.status == PlaybackStatus.Playing) {
+                                    val switched = autoNextIfAny()
+                                    if (!switched) {
+                                        _playbackState.update {
+                                            it.copy(status = PlaybackStatus.Completed)
+                                        }
+                                    }
+                                }
+                                return@let
                             }
-                            return@let
                         }
                     }
 
@@ -450,10 +456,9 @@ class PlayerDelegateImpl(
     }
 
     override fun seekTo(positionMs: Long) {
-        // 手动 seek 到结尾附近：标记为手动结束，播放到末尾后不自动连播；
-        // seek 回正常区间或重新播放时自动清除
-        val dur = _playbackState.value.duration
-        manualEndSeek = dur > 0 && positionMs >= dur - 1500
+        // 记录手动 seek 时间：之后 2 秒内抑制"播放完成"检测，
+        // 避免拖动到结尾的瞬间触发连播/完成页
+        lastManualSeekAt = kotlin.time.Clock.System.now().toEpochMilliseconds()
         _mediampPlayer?.let { player ->
             if (segmentUrls.isNotEmpty()) {
                 var accumulated = 0L

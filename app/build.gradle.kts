@@ -149,6 +149,7 @@ dependencies {
 
     // 播放器相关
     implementation(libs.androidx.media3.common)
+    implementation("androidx.media:media:1.7.0")
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.decoder)
     implementation(libs.androidx.media3.ui)

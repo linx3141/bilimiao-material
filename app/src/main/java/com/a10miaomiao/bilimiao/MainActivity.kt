@@ -231,6 +231,28 @@ class MainActivity : ComponentActivity(), DIAware {
         mediaPlayerMetaListener = { title, coverUrl ->
             runOnUiThread {
                 PlaybackService.updateMediaMeta(title)
+                // 后台加载封面并交给媒体通知（largeIcon）
+                if (coverUrl.isNotBlank()) {
+                    kotlin.concurrent.thread {
+                        try {
+                            // 封面 URL 可能为 http 明文(网络安全策略禁止)，统一升级 https
+                            val url = if (coverUrl.startsWith("http://")) {
+                                "https://" + coverUrl.removePrefix("http://")
+                            } else {
+                                coverUrl
+                            }
+                            val bmp = com.bumptech.glide.Glide.with(applicationContext)
+                                .asBitmap()
+                                .load(url)
+                                .submit(480, 270)
+                                .get()
+                            runOnUiThread {
+                                PlaybackService.updateMediaCover(bmp)
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
             }
         }
         themeDelegate.onCreate(savedInstanceState)
