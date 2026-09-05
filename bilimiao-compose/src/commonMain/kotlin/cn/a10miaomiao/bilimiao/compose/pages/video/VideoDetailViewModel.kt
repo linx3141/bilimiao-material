@@ -45,6 +45,8 @@ import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.kodein.di.DI
@@ -125,6 +127,22 @@ class VideoDetailViewModel(
 
     init {
         loadData()
+        // 播放列表连播跟随：播放器被自动切到下一个视频时，
+        // 若本页正是被切走的那个"正在播放的详情页"，详情内容跟随切换到新视频。
+        // 用户手动打开新详情页会先注册新 aid，不会命中本条件。
+        viewModelScope.launch {
+            var lastPlayedAid: String? = null
+            playerStore.stateFlow.map { it.aid }.distinctUntilChanged().collect { newAid ->
+                val prev = lastPlayedAid
+                lastPlayedAid = newAid
+                if (prev != null && newAid != null && newAid != prev &&
+                    registeredPageAid == prev &&
+                    startViewState.currentVideoPageAid == prev
+                ) {
+                    changeVideo(newAid)
+                }
+            }
+        }
         viewModelScope.launch {
             val emitter by instance<SharedFlowEmitter>()
             emitter.collectAction<EmitterAction.CoinChanged> {
