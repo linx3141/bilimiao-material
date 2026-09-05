@@ -78,6 +78,8 @@ fun VideoScaffold(
     video: @Composable BoxScope.() -> Unit = {},
     danmakuHost: @Composable BoxScope.() -> Unit = {},
     gestureHost: @Composable BoxWithConstraintsScope.() -> Unit = {},
+    /** 顶层覆盖层（位于控制器/手势之上）：播放完成遮罩等 */
+    overlay: @Composable BoxScope.() -> Unit = {},
     floatingMessage: @Composable BoxScope.() -> Unit = {},
     rhsButtons: @Composable ColumnScope.() -> Unit = {},
     gestureLock: @Composable ColumnScope.() -> Unit = {},
@@ -358,6 +360,10 @@ fun VideoScaffold(
                 // 右侧 sheet
                 Box(Modifier.matchParentSize().windowInsetsPadding(contentWindowInsets)) {
                     rhsSheet()
+                }
+                // 顶层覆盖层（最上，拦截控制器/手势交互，如播放完成遮罩）
+                Box(Modifier.matchParentSize()) {
+                    overlay()
                 }
             }
         }

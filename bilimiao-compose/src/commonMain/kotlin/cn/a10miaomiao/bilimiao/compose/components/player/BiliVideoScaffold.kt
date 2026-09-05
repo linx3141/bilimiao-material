@@ -81,6 +81,22 @@ import com.a10miaomiao.bilimiao.comm.store.UserStore
 import com.a10miaomiao.bilimiao.comm.toast.GlobalToaster
 import org.kodein.di.compose.rememberInstance
 import org.openani.mediamp.MediampPlayer
+import androidx.compose.foundation.background
+
+import androidx.compose.foundation.layout.Arrangement
+
+import androidx.compose.foundation.layout.Column
+
+import androidx.compose.foundation.layout.Spacer
+
+import androidx.compose.foundation.layout.height
+
+import androidx.compose.material3.Button
+
+import androidx.compose.ui.input.pointer.pointerInput
+
+import androidx.compose.ui.unit.sp
+
 
 /**
  * bilimiao 视频播放器容器
@@ -383,13 +399,7 @@ fun BiliVideoScaffold(
                         text = { androidx.compose.material3.Text(msg) },
                     )
                 }
-                if (isCompleted) {
-                    VideoLoadingIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        showProgress = false,
-                        text = { androidx.compose.material3.Text("播放完成") },
-                    )
-                }
+
             },
             bottomBar = {
                 PlayerControllerBar(
@@ -487,6 +497,17 @@ fun BiliVideoScaffold(
                     isLocked = isLocked,
                     onClick = { isLocked = !isLocked },
                 )
+            },
+            overlay = {
+                // 播放完成：阴影遮罩 + 重播/退出按钮，遮罩拦截触摸，
+                // 上层控制器/进度条无法被点出（compose 播放完成后仅保留文字）
+                if (isCompleted) {
+                    PlayerCompletedOverlay(
+                        onReplay = { playerDelegate.replay() },
+                        onExit = onBack,
+                        modifier = Modifier.matchParentSize(),
+                    )
+                }
             },
         )
     }
