@@ -54,8 +54,4 @@ bilimiao原为哔哩哔哩时光机，原始功能主要为查看各个分区在
 * [mojito](https://github.com/mikaelzero/mojito)
 * [DialogX](https://github.com/kongzue/DialogX)
 * [scale](https://github.com/jvziyaoyao/scale)
-
-
-### 关于我
-* 个人网站 [10喵喵](https://10miaomiao.cn/)
-* B站 [10喵喵](https://space.bilibili.com/6789810/)
+* [KernelSU](https://github.com/tiann/KernelSU)
