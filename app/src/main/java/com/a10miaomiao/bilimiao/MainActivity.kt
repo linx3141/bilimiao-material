@@ -216,7 +216,9 @@ class MainActivity : ComponentActivity(), DIAware {
             }
         }
         mediaPlayerMetaListener = { title, coverUrl ->
-            PlaybackService.instance?.updateMediaMeta(title, coverUrl)
+            runOnUiThread {
+                PlaybackService.updateMediaMeta(title)
+            }
         }
         themeDelegate.onCreate(savedInstanceState)
 
