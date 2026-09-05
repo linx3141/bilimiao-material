@@ -205,6 +205,19 @@ class MainActivity : ComponentActivity(), DIAware {
             runOnUiThread {
                 val exo = com.a10miaomiao.bilimiao.comm.delegate.player.mediampExoPlayerOf(mp)
                     ?: return@runOnUiThread
+                // 媒体控件依赖媒体通知：未授权时先请求（Android 13+）
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        1
+                    )
+                }
                 val intent = Intent(this, PlaybackService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent)

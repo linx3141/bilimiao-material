@@ -87,6 +87,9 @@ class PlayerDelegateImpl(
     private val _currentPosition = MutableStateFlow(0L)
     override val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
 
+    /** 用户手动 seek 到结尾附近（视为"手动结束"，不触发自动连播） */
+    private var manualEndSeek = false
+
     // 分段播放状态
     private var segmentUrls = listOf<String>()
     private var segmentDurations = listOf<Long>()
@@ -112,6 +115,7 @@ class PlayerDelegateImpl(
 
     private fun loadAndPlay(source: BasePlayerSource) {
         val player = _mediampPlayer ?: return
+        manualEndSeek = false
         // 先停止之前的播放
         progressJob?.cancel()
         player.stopPlayback()
@@ -339,8 +343,15 @@ class PlayerDelegateImpl(
                         if (segmentUrls.isNotEmpty() && currentSegmentIndex < segmentUrls.size - 1) {
                             loadNextSegment(player)
                         } else if (_playbackState.value.status != PlaybackStatus.Completed) {
-                            _playbackState.update { it.copy(status = PlaybackStatus.Completed) }
-                            onAutoCompletion()
+                            // 只有"自然播放到结尾"才尝试自动连播：
+                            // 手动拖到结尾(manualEndSeek)或暂停状态下到结尾都不切换，
+                            // 而是停在"播放完成"页；连播成功时不置 Completed(避免完成页闪现)
+                            val naturalEnd = !manualEndSeek &&
+                                _playbackState.value.status == PlaybackStatus.Playing
+                            val switched = naturalEnd && autoNextIfAny()
+                            if (!switched) {
+                                _playbackState.update { it.copy(status = PlaybackStatus.Completed) }
+                            }
                             return@let
                         }
                     }
@@ -367,46 +378,47 @@ class PlayerDelegateImpl(
     }
 
     /**
-     * 播放完成后的自动播放逻辑（对齐原安卓版 PlayerController.onAutoCompletion）
+     * 播放完成后的自动连播尝试（对齐原安卓版 PlayerController.onAutoCompletion）。
+     *
+     * @return true 表示已切换到下一个内容（调用方不应再置 Completed）
      */
-    private fun onAutoCompletion() {
-        val source = _sourceState.value.currentSource ?: return
-        coroutineScope.launch {
-            val (order, orderRandom) = SettingPreferences.mapPreferences {
-                val order = it[SettingPreferences.PlayerOrder] ?: SettingConstants.PLAYER_ORDER_DEFAULT
-                val orderRandom = it[SettingPreferences.PlayerOrderRandom] ?: false
-                order to orderRandom
-            }
-            val isLoop = order and SettingConstants.PLAYER_ORDER_LOOP != 0
-            val nextPlayerSourceInfo = source.next()
-            if (nextPlayerSourceInfo is VideoPlayerSource
-                && order and SettingConstants.PLAYER_ORDER_NEXT_P != 0
-            ) {
-                // 自动播放下一P
-                openPlayer(nextPlayerSourceInfo)
-                return@launch
-            } else if (nextPlayerSourceInfo is BangumiPlayerSource
-                && order and SettingConstants.PLAYER_ORDER_NEXT_EPISODE != 0
-            ) {
-                // 自动播放下一集
-                openPlayer(nextPlayerSourceInfo)
-                return@launch
-            }
-            if (order and SettingConstants.PLAYER_ORDER_NEXT_VIDEO != 0) {
-                // 自动下一个视频
-                val nextVideo = playerStore.nextVideo(orderRandom, isLoop)
-                if (nextVideo != null) {
-                    openPlayer(nextVideo.toVideoPlayerSource())
-                    return@launch
-                }
-            }
-            if (isLoop) {
-                // 单个视频循环
-                source.isLoop = true
-                openPlayer(source)
-            }
-            // 否则保持 status = Completed 状态，显示播放完成覆盖层
+    private suspend fun autoNextIfAny(): Boolean {
+        val source = _sourceState.value.currentSource ?: return false
+        val (order, orderRandom) = SettingPreferences.mapPreferences {
+            val order = it[SettingPreferences.PlayerOrder] ?: SettingConstants.PLAYER_ORDER_DEFAULT
+            val orderRandom = it[SettingPreferences.PlayerOrderRandom] ?: false
+            order to orderRandom
         }
+        val isLoop = order and SettingConstants.PLAYER_ORDER_LOOP != 0
+        val nextPlayerSourceInfo = source.next()
+        if (nextPlayerSourceInfo is VideoPlayerSource
+            && order and SettingConstants.PLAYER_ORDER_NEXT_P != 0
+        ) {
+            // 自动播放下一P
+            openPlayer(nextPlayerSourceInfo)
+            return true
+        } else if (nextPlayerSourceInfo is BangumiPlayerSource
+            && order and SettingConstants.PLAYER_ORDER_NEXT_EPISODE != 0
+        ) {
+            // 自动播放下一集
+            openPlayer(nextPlayerSourceInfo)
+            return true
+        }
+        if (order and SettingConstants.PLAYER_ORDER_NEXT_VIDEO != 0) {
+            // 自动下一个视频
+            val nextVideo = playerStore.nextVideo(orderRandom, isLoop)
+            if (nextVideo != null) {
+                openPlayer(nextVideo.toVideoPlayerSource())
+                return true
+            }
+        }
+        if (isLoop) {
+            // 单个视频循环
+            source.isLoop = true
+            openPlayer(source)
+            return true
+        }
+        return false
     }
 
     private suspend fun loadNextSegment(player: MediampPlayer) {
@@ -438,6 +450,10 @@ class PlayerDelegateImpl(
     }
 
     override fun seekTo(positionMs: Long) {
+        // 手动 seek 到结尾附近：标记为手动结束，播放到末尾后不自动连播；
+        // seek 回正常区间或重新播放时自动清除
+        val dur = _playbackState.value.duration
+        manualEndSeek = dur > 0 && positionMs >= dur - 1500
         _mediampPlayer?.let { player ->
             if (segmentUrls.isNotEmpty()) {
                 var accumulated = 0L
